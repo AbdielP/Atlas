@@ -1,9 +1,15 @@
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
+import { View, PanResponder } from "react-native";
 import * as THREE from "three";
 import world from "../../assets/data/world.json";
 import { latLonToXYZ } from "../utils/geoUtils";
 import CountryFill from "./CountryFill";
+
+const rotationState = {
+  x: 0,
+  y: 0,
+};
 
 function GlobeBase() {
   return (
@@ -58,44 +64,16 @@ function CountryBorders() {
 
 function GlobeScene() {
   const globeRef = useRef(null);
-  const isDraggingRef = useRef(false);
-  const lastPointerRef = useRef({ x: 0, y: 0 });
 
-  function handlePointerDown(event) {
-    isDraggingRef.current = true;
-    lastPointerRef.current = {
-      x: event.nativeEvent?.locationX ?? event.clientX ?? 0,
-      y: event.nativeEvent?.locationY ?? event.clientY ?? 0,
-    };
-  }
+  useFrame(() => {
+    if (!globeRef.current) return;
 
-  function handlePointerMove(event) {
-    if (!isDraggingRef.current || !globeRef.current) return;
-
-    const x = event.nativeEvent?.locationX ?? event.clientX ?? 0;
-    const y = event.nativeEvent?.locationY ?? event.clientY ?? 0;
-
-    const deltaX = x - lastPointerRef.current.x;
-    const deltaY = y - lastPointerRef.current.y;
-
-    globeRef.current.rotation.y += deltaX * 0.005;
-    globeRef.current.rotation.x += deltaY * 0.005;
-
-    lastPointerRef.current = { x, y };
-  }
-
-  function handlePointerUp() {
-    isDraggingRef.current = false;
-  }
+    globeRef.current.rotation.x = rotationState.x;
+    globeRef.current.rotation.y = rotationState.y;
+  });
 
   return (
-    <group
-      ref={globeRef}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerOut={handlePointerUp}
-    >
+    <group ref={globeRef}>
       <GlobeBase />
       <CountryFill />
       <CountryBorders />
@@ -104,9 +82,25 @@ function GlobeScene() {
 }
 
 export default function WorldGlobe() {
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+
+        onPanResponderMove: (_, gestureState) => {
+          rotationState.y += gestureState.vx * 0.08;
+          rotationState.x += gestureState.vy * 0.08;
+        },
+      }),
+    []
+  );
+
   return (
-    <Canvas camera={{ position: [0, 0, 3] }}>
-      <GlobeScene />
-    </Canvas>
+    <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+      <Canvas camera={{ position: [0, 0, 3] }}>
+        <GlobeScene />
+      </Canvas>
+    </View>
   );
 }
