@@ -4,7 +4,7 @@ import { View, PanResponder } from "react-native";
 import * as THREE from "three";
 import world from "../../assets/data/world.json";
 import { latLonToXYZ } from "../utils/geoUtils";
-import CountryFill from "./CountryFill";
+import CountriesLayer from "./CountriesLayer";
 
 const globeState = {
     x: 0,
@@ -14,7 +14,7 @@ const globeState = {
 
 function GlobeBase() {
     return (
-        <mesh>
+        <mesh raycast={() => null}>
             <sphereGeometry args={[1, 64, 64]} />
             <meshBasicMaterial color="#eeeeee" />
         </mesh>
@@ -78,7 +78,7 @@ function GlobeScene() {
     return (
         <group ref={globeRef}>
             <GlobeBase />
-            <CountryFill />
+            <CountriesLayer />
             <CountryBorders />
         </group>
     );
