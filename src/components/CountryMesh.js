@@ -72,7 +72,7 @@ export default function CountryMesh({ feature }) {
                 >
                     <meshBasicMaterial
                         color="#ffffff"
-                        side={THREE.DoubleSide}
+                        side={THREE.FrontSide}
                     />
                 </mesh>
             ))}
