@@ -2,8 +2,7 @@ import world from "../../assets/data/world.json";
 import CountryMesh from "./CountryMesh";
 
 export default function CountriesLayer({
-    countryStates,
-    setCountryStates
+    onCountryPress
 }) {
     return (
         <>
@@ -11,8 +10,7 @@ export default function CountriesLayer({
                 <CountryMesh
                     key={`${feature.properties.ISO_A3}-${index}`}
                     feature={feature}
-                    countryStates={countryStates}
-                    setCountryStates={setCountryStates}
+                    onCountryPress={onCountryPress}
                 />
             ))}
         </>

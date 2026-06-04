@@ -1,10 +1,11 @@
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { View, PanResponder } from "react-native";
 import * as THREE from "three";
 import world from "../../assets/data/world.json";
 import { latLonToXYZ } from "../utils/geoUtils";
 import CountriesLayer from "./CountriesLayer";
+import CountryMenu from "./CountryMenu";
 
 const globeState = {
     x: 0,
@@ -64,7 +65,7 @@ function CountryBorders() {
     );
 }
 
-function GlobeScene() {
+function GlobeScene({ onCountryPress }) {
     const globeRef = useRef(null);
 
     useFrame((state) => {
@@ -78,7 +79,9 @@ function GlobeScene() {
     return (
         <group ref={globeRef}>
             <GlobeBase />
-            <CountriesLayer />
+            <CountriesLayer
+                onCountryPress={onCountryPress}
+            />
             <CountryBorders />
         </group>
     );
@@ -89,6 +92,7 @@ export default function WorldGlobe() {
     const initialDistanceRef = useRef(0);
     const initialZoomRef = useRef(3);
     const isPinchingRef = useRef(false);
+    const [selectedCountry, setSelectedCountry] = useState(null);
 
     const panResponder = useMemo(
         () =>
@@ -184,9 +188,33 @@ export default function WorldGlobe() {
 
     return (
         <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-            <Canvas camera={{ position: [0, 0, 3] }}>
-                <GlobeScene />
-            </Canvas>
+            <>
+                <Canvas camera={{ position: [0, 0, 3] }}>
+                    <GlobeScene
+                        onCountryPress={setSelectedCountry}
+                    />
+                </Canvas>
+
+                <CountryMenu
+                    visible={!!selectedCountry}
+                    country={selectedCountry}
+                    onVisited={() => {
+                        console.log("visited");
+                        setSelectedCountry(null);
+                    }}
+                    onWishlist={() => {
+                        console.log("wishlist");
+                        setSelectedCountry(null);
+                    }}
+                    onClear={() => {
+                        console.log("clear");
+                        setSelectedCountry(null);
+                    }}
+                    onClose={() => {
+                        setSelectedCountry(null);
+                    }}
+                />
+            </>
         </View>
     );
 }

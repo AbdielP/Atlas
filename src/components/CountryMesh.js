@@ -3,7 +3,10 @@ import * as THREE from "three";
 import earcut from "earcut";
 import { latLonToXYZ } from "../utils/geoUtils";
 
-export default function CountryMesh({ feature }) {
+export default function CountryMesh({
+    feature,
+    onCountryPress
+}) {
     const geometries = useMemo(() => {
         const result = [];
 
@@ -60,6 +63,12 @@ export default function CountryMesh({ feature }) {
 
     function handleClick(event) {
         event.stopPropagation();
+        const iso = feature.properties.ISO_A3;
+
+        onCountryPress?.({
+            iso,
+            name: feature.properties.NAME
+        });
 
         if (stateRef.current === "none") {
             stateRef.current = "visited";
