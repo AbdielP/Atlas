@@ -1,12 +1,14 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import earcut from "earcut";
 import { latLonToXYZ } from "../utils/geoUtils";
+import { registerCountryMaterials } from "../data/countryStore";
 
-export default function CountryMesh({
-    feature,
-    onCountryPress
-}) {
+export default function CountryMesh({ feature, onCountryPress }) {
+    const iso = feature.properties.ISO_A3;
+    const name = feature.properties.NAME;
+    const materialRefs = useRef([]);
+
     const geometries = useMemo(() => {
         const result = [];
 
@@ -20,17 +22,11 @@ export default function CountryMesh({
             });
 
             const triangles = earcut(flat);
-
             const finalVertices = [];
 
             triangles.forEach((index) => {
                 const i = index * 3;
-
-                finalVertices.push(
-                    vertices[i],
-                    vertices[i + 1],
-                    vertices[i + 2]
-                );
+                finalVertices.push(vertices[i], vertices[i + 1], vertices[i + 2]);
             });
 
             const geometry = new THREE.BufferGeometry();
@@ -58,59 +54,23 @@ export default function CountryMesh({
         return result;
     }, [feature]);
 
-    const materialRefs = useRef([]);
-    const stateRef = useRef("none");
+    useEffect(() => {
+        registerCountryMaterials(iso, materialRefs.current);
+    }, [iso]);
 
     function handleClick(event) {
         event.stopPropagation();
-        const iso = feature.properties.ISO_A3;
 
         onCountryPress?.({
             iso,
-            name: feature.properties.NAME
-        });
-
-        if (stateRef.current === "none") {
-            stateRef.current = "visited";
-
-            materialRefs.current.forEach((material) => {
-                if (material) {
-                    material.color.set("#4da3ff");
-                }
-            });
-
-            return;
-        }
-
-        if (stateRef.current === "visited") {
-            stateRef.current = "wishlist";
-
-            materialRefs.current.forEach((material) => {
-                if (material) {
-                    material.color.set("#f2c94c");
-                }
-            });
-
-            return;
-        }
-
-        stateRef.current = "none";
-
-        materialRefs.current.forEach((material) => {
-            if (material) {
-                material.color.set("#ffffff");
-            }
+            name
         });
     }
 
     return (
         <>
             {geometries.map((geometry, index) => (
-                <mesh
-                    key={index}
-                    geometry={geometry}
-                    onClick={handleClick}
-                >
+                <mesh key={index} geometry={geometry} onClick={handleClick}>
                     <meshBasicMaterial
                         ref={(ref) => {
                             materialRefs.current[index] = ref;

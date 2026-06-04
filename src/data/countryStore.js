@@ -1,16 +1,15 @@
 export const countryStates = {};
+
 const countryMaterials = {};
+
+const colors = {
+    none: "#ffffff",
+    visited: "#4da3ff",
+    wishlist: "#f2c94c"
+};
 
 export function registerCountryMaterials(iso, materials) {
     countryMaterials[iso] = materials;
-}
-
-export function unregisterCountryMaterials(iso) {
-    delete countryMaterials[iso];
-}
-
-export function getCountryState(iso) {
-    return countryStates[iso] || "none";
 }
 
 export function setCountryState(iso, state) {
@@ -20,14 +19,8 @@ export function setCountryState(iso, state) {
         countryStates[iso] = state;
     }
 
-    const color =
-        state === "visited"
-            ? "#4da3ff"
-            : state === "wishlist"
-                ? "#f2c94c"
-                : "#ffffff";
-
     const materials = countryMaterials[iso] || [];
+    const color = colors[state] || colors.none;
 
     materials.forEach((material) => {
         if (material) {

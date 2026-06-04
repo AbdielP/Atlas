@@ -6,6 +6,7 @@ import world from "../../assets/data/world.json";
 import { latLonToXYZ } from "../utils/geoUtils";
 import CountriesLayer from "./CountriesLayer";
 import CountryMenu from "./CountryMenu";
+import { setCountryState } from "../data/countryStore";
 
 const globeState = {
     x: 0,
@@ -199,18 +200,15 @@ export default function WorldGlobe() {
                     visible={!!selectedCountry}
                     country={selectedCountry}
                     onVisited={() => {
-                        console.log("visited");
+                        setCountryState(selectedCountry.iso, "visited");
                         setSelectedCountry(null);
                     }}
                     onWishlist={() => {
-                        console.log("wishlist");
+                        setCountryState(selectedCountry.iso, "wishlist");
                         setSelectedCountry(null);
                     }}
                     onClear={() => {
-                        console.log("clear");
-                        setSelectedCountry(null);
-                    }}
-                    onClose={() => {
+                        setCountryState(selectedCountry.iso, "none");
                         setSelectedCountry(null);
                     }}
                 />
