@@ -1,12 +1,15 @@
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { View, PanResponder } from "react-native";
 import * as THREE from "three";
 import world from "../../assets/data/world-lite.json";
 import { latLonToXYZ } from "../utils/geoUtils";
 import CountriesLayer from "./CountriesLayer";
 import CountryMenu from "./CountryMenu";
-import { setCountryState } from "../data/countryStore";
+import {
+    loadCountryStates,
+    setCountryStateAndPersist
+} from "../data/countryStore";
 
 const globeState = {
     x: 0,
@@ -94,6 +97,10 @@ export default function WorldGlobe() {
     const initialZoomRef = useRef(3);
     const isPinchingRef = useRef(false);
     const [selectedCountry, setSelectedCountry] = useState(null);
+
+    useEffect(() => {
+        loadCountryStates();
+    }, []);
 
     const panResponder = useMemo(
         () =>
@@ -200,15 +207,15 @@ export default function WorldGlobe() {
                     visible={!!selectedCountry}
                     country={selectedCountry}
                     onVisited={() => {
-                        setCountryState(selectedCountry.id, "visited");
+                        setCountryStateAndPersist(selectedCountry.id, "visited");
                         setSelectedCountry(null);
                     }}
                     onWishlist={() => {
-                        setCountryState(selectedCountry.id, "wishlist");
+                        setCountryStateAndPersist(selectedCountry.id, "wishlist");
                         setSelectedCountry(null);
                     }}
                     onClear={() => {
-                        setCountryState(selectedCountry.id, "none");
+                        setCountryStateAndPersist(selectedCountry.id, "none");
                         setSelectedCountry(null);
                     }}
                     onClose={() => {
