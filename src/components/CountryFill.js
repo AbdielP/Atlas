@@ -1,11 +1,11 @@
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import earcut from "earcut";
-import world from "../../assets/data/world.json";
+import world from "../../assets/data/world-lite.json";
 import { latLonToXYZ } from "../utils/geoUtils";
 
 const panama = world.features.find(
-    (country) => country.properties.NAME === "Panama"
+    (country) => country.properties.name === "Panama"
 );
 
 export default function CountryFill() {

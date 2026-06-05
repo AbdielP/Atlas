@@ -7,10 +7,12 @@ import { registerCountryMaterials } from "../data/countryStore";
 const COUNTRY_RADIUS = 1.018;
 const MAX_TRIANGLE_EDGE = 0.18;
 const MAX_SUBDIVISION_DEPTH = 8;
+const LAND_COLOR = "#f4f4f4";
+// const LAND_COLOR = "#0e6975";
 
 export default function CountryMesh({ feature, onCountryPress }) {
-    const iso = feature.properties.ISO_A3;
-    const name = feature.properties.NAME;
+    const countryId = feature.id;
+    const name = feature.properties.name;
     const materialRefs = useRef([]);
 
     const geometries = useMemo(() => {
@@ -167,14 +169,14 @@ export default function CountryMesh({ feature, onCountryPress }) {
     }, [feature]);
 
     useEffect(() => {
-        registerCountryMaterials(iso, materialRefs.current);
-    }, [iso]);
+        registerCountryMaterials(countryId, materialRefs.current);
+    }, [countryId]);
 
     function handleClick(event) {
         event.stopPropagation();
 
         onCountryPress?.({
-            iso,
+            id: countryId,
             name
         });
     }
@@ -187,8 +189,9 @@ export default function CountryMesh({ feature, onCountryPress }) {
                         ref={(ref) => {
                             materialRefs.current[index] = ref;
                         }}
-                        color="#ffffff"
+                        color={LAND_COLOR}
                         side={THREE.FrontSide}
+                        toneMapped={false}
                     />
                 </mesh>
             ))}

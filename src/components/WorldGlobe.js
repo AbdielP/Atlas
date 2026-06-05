@@ -2,7 +2,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { useMemo, useRef, useState } from "react";
 import { View, PanResponder } from "react-native";
 import * as THREE from "three";
-import world from "../../assets/data/world.json";
+import world from "../../assets/data/world-lite.json";
 import { latLonToXYZ } from "../utils/geoUtils";
 import CountriesLayer from "./CountriesLayer";
 import CountryMenu from "./CountryMenu";
@@ -18,7 +18,7 @@ function GlobeBase() {
     return (
         <mesh raycast={() => null}>
             <sphereGeometry args={[1, 64, 64]} />
-            <meshBasicMaterial color="#eeeeee" />
+            <meshBasicMaterial color="#e6e6e6" toneMapped={false} />
         </mesh>
     );
 }
@@ -200,15 +200,18 @@ export default function WorldGlobe() {
                     visible={!!selectedCountry}
                     country={selectedCountry}
                     onVisited={() => {
-                        setCountryState(selectedCountry.iso, "visited");
+                        setCountryState(selectedCountry.id, "visited");
                         setSelectedCountry(null);
                     }}
                     onWishlist={() => {
-                        setCountryState(selectedCountry.iso, "wishlist");
+                        setCountryState(selectedCountry.id, "wishlist");
                         setSelectedCountry(null);
                     }}
                     onClear={() => {
-                        setCountryState(selectedCountry.iso, "none");
+                        setCountryState(selectedCountry.id, "none");
+                        setSelectedCountry(null);
+                    }}
+                    onClose={() => {
                         setSelectedCountry(null);
                     }}
                 />

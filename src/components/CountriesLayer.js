@@ -1,4 +1,4 @@
-import world from "../../assets/data/world.json";
+import world from "../../assets/data/world-lite.json";
 import CountryMesh from "./CountryMesh";
 
 export default function CountriesLayer({
@@ -8,7 +8,7 @@ export default function CountriesLayer({
         <>
             {world.features.map((feature, index) => (
                 <CountryMesh
-                    key={`${feature.properties.ISO_A3}-${index}`}
+                    key={`${feature.id}-${index}`}
                     feature={feature}
                     onCountryPress={onCountryPress}
                 />
