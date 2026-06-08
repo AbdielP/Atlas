@@ -2,12 +2,11 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import earcut from "earcut";
 import { latLonToXYZ } from "../utils/geoUtils";
-import { registerCountryMaterials } from "../data/countryStore";
+import { getCountryColor, registerCountryMaterials } from "../data/countryStore";
 
 const COUNTRY_RADIUS = 1.018;
 const MAX_TRIANGLE_EDGE = 0.18;
 const MAX_SUBDIVISION_DEPTH = 8;
-const LAND_COLOR = "#f4f4f4";
 // const LAND_COLOR = "#0e6975";
 
 export default function CountryMesh({ feature, onCountryPress }) {
@@ -189,7 +188,7 @@ export default function CountryMesh({ feature, onCountryPress }) {
                         ref={(ref) => {
                             materialRefs.current[index] = ref;
                         }}
-                        color={LAND_COLOR}
+                        color={getCountryColor(countryId)}
                         side={THREE.FrontSide}
                         toneMapped={false}
                     />
