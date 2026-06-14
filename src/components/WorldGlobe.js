@@ -7,6 +7,7 @@ import { latLonToXYZ } from "../utils/geoUtils";
 import CountriesLayer from "./CountriesLayer";
 import CountryMenu from "./CountryMenu";
 import {
+    countryStates,
     loadCountryStates,
     setCountryStateAndPersist
 } from "../data/countryStore";
@@ -16,6 +17,75 @@ const globeState = {
     y: 0,
     zoom: 3
 };
+
+const COMPACT_FOCUS_ZOOM = 2.35;
+const COMPACT_FOCUS_VERTICAL_OFFSET = 0.34;
+const RICH_FOCUS_ZOOM = 2.58;
+const RICH_FOCUS_VERTICAL_OFFSET = 0.56;
+const FOCUS_ANIMATION_MS = 650;
+
+const globeAnimation = {
+    active: false,
+    startedAt: 0,
+    duration: FOCUS_ANIMATION_MS,
+    from: { x: 0, y: 0, zoom: 3 },
+    to: { x: 0, y: 0, zoom: 3 }
+};
+
+function easeOutCubic(value) {
+    return 1 - Math.pow(1 - value, 3);
+}
+
+function normalizeAngleNear(target, current) {
+    let next = target;
+
+    while (next - current > Math.PI) next -= Math.PI * 2;
+    while (next - current < -Math.PI) next += Math.PI * 2;
+
+    return next;
+}
+
+function startGlobeAnimation(target, duration = FOCUS_ANIMATION_MS) {
+    globeAnimation.active = true;
+    globeAnimation.startedAt = Date.now();
+    globeAnimation.duration = duration;
+    globeAnimation.from = {
+        x: globeState.x,
+        y: globeState.y,
+        zoom: globeState.zoom
+    };
+    globeAnimation.to = {
+        x: target.x,
+        y: target.y,
+        zoom: target.zoom
+    };
+}
+
+function stopGlobeAnimation() {
+    globeAnimation.active = false;
+}
+
+function getFocusTarget(focusPoint, isRichSheet) {
+    if (!focusPoint) return null;
+
+    const zoom = isRichSheet ? RICH_FOCUS_ZOOM : COMPACT_FOCUS_ZOOM;
+    const verticalOffset = isRichSheet
+        ? RICH_FOCUS_VERTICAL_OFFSET
+        : COMPACT_FOCUS_VERTICAL_OFFSET;
+    const { lat, lon } = focusPoint;
+    const point = latLonToXYZ(lat, lon, 1);
+    const targetY = normalizeAngleNear(
+        Math.atan2(-point[0], point[2]),
+        globeState.y
+    );
+    const targetX = THREE.MathUtils.degToRad(lat) - Math.asin(verticalOffset);
+
+    return {
+        x: targetX,
+        y: targetY,
+        zoom
+    };
+}
 
 function GlobeBase() {
     return (
@@ -75,6 +145,21 @@ function GlobeScene({ onCountryPress }) {
     useFrame((state) => {
         if (!globeRef.current) return;
 
+        if (globeAnimation.active) {
+            const elapsed = Date.now() - globeAnimation.startedAt;
+            const progress = Math.min(1, elapsed / globeAnimation.duration);
+            const eased = easeOutCubic(progress);
+            const { from, to } = globeAnimation;
+
+            globeState.x = THREE.MathUtils.lerp(from.x, to.x, eased);
+            globeState.y = THREE.MathUtils.lerp(from.y, to.y, eased);
+            globeState.zoom = THREE.MathUtils.lerp(from.zoom, to.zoom, eased);
+
+            if (progress >= 1) {
+                globeAnimation.active = false;
+            }
+        }
+
         globeRef.current.rotation.x = globeState.x;
         globeRef.current.rotation.y = globeState.y;
         state.camera.position.z = globeState.zoom;
@@ -96,6 +181,7 @@ export default function WorldGlobe() {
     const initialDistanceRef = useRef(0);
     const initialZoomRef = useRef(3);
     const isPinchingRef = useRef(false);
+    const focusSnapshotRef = useRef(null);
     const [selectedCountry, setSelectedCountry] = useState(null);
 
     useEffect(() => {
@@ -119,6 +205,8 @@ export default function WorldGlobe() {
                 },
 
                 onPanResponderGrant: (event) => {
+                    stopGlobeAnimation();
+
                     const touches = event.nativeEvent.touches;
 
                     if (touches.length === 1) {
@@ -194,12 +282,41 @@ export default function WorldGlobe() {
         []
     );
 
+    function focusCountry(country) {
+        if (!focusSnapshotRef.current) {
+            focusSnapshotRef.current = {
+                x: globeState.x,
+                y: globeState.y,
+                zoom: globeState.zoom
+            };
+        }
+
+        const status = countryStates[country.id] || "none";
+        const isRichSheet = status === "visited" || status === "wishlist";
+        const target = getFocusTarget(country.focusPoint, isRichSheet);
+
+        if (target) {
+            startGlobeAnimation(target);
+        }
+
+        setSelectedCountry(country);
+    }
+
+    function closeCountryMenu() {
+        setSelectedCountry(null);
+
+        if (focusSnapshotRef.current) {
+            startGlobeAnimation(focusSnapshotRef.current, 500);
+            focusSnapshotRef.current = null;
+        }
+    }
+
     return (
         <View style={{ flex: 1 }} {...panResponder.panHandlers}>
             <>
                 <Canvas camera={{ position: [0, 0, 3] }}>
                     <GlobeScene
-                        onCountryPress={setSelectedCountry}
+                        onCountryPress={focusCountry}
                     />
                 </Canvas>
 
@@ -208,18 +325,18 @@ export default function WorldGlobe() {
                     country={selectedCountry}
                     onVisited={() => {
                         setCountryStateAndPersist(selectedCountry.id, "visited");
-                        setSelectedCountry(null);
+                        closeCountryMenu();
                     }}
                     onWishlist={() => {
                         setCountryStateAndPersist(selectedCountry.id, "wishlist");
-                        setSelectedCountry(null);
+                        closeCountryMenu();
                     }}
                     onClear={() => {
                         setCountryStateAndPersist(selectedCountry.id, "none");
-                        setSelectedCountry(null);
+                        closeCountryMenu();
                     }}
                     onClose={() => {
-                        setSelectedCountry(null);
+                        closeCountryMenu();
                     }}
                 />
             </>
