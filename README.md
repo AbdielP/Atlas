@@ -14,7 +14,7 @@
 - [ ] Estadísticas flotantes en el globo (visibles solo en zoom mínimo)
 - [ ] GPS: marcador de ubicación actual con expo-location
 - [ ] Perfil: mostrar datos reales del usuario autenticado
-- [ ] Paywall modal (límite de fotos Free → Premium)
+- [ ] Paywall modal (límite de fotos Free → Premium) Pwk1U6iticN9v8bN
 
 ---
 
