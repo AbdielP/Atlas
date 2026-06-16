@@ -5,6 +5,7 @@ export const countryStates = {};
 const countryMaterials = {};
 const STORAGE_KEY = "@atlas/country-states/v1";
 const savedStates = new Set(["visited", "wishlist"]);
+let countryStatesLoadPromise = null;
 
 const colors = {
     none: "#ffffff",
@@ -15,6 +16,10 @@ const colors = {
 export function registerCountryMaterials(iso, materials) {
     countryMaterials[iso] = materials;
     applyCountryColor(iso, countryStates[iso] || "none");
+}
+
+export function getCountryColor(iso) {
+    return colors[countryStates[iso] || "none"];
 }
 
 export function setCountryState(iso, state) {
@@ -33,6 +38,20 @@ export async function setCountryStateAndPersist(iso, state) {
 }
 
 export async function loadCountryStates() {
+    if (countryStatesLoadPromise) {
+        return countryStatesLoadPromise;
+    }
+
+    countryStatesLoadPromise = readCountryStates();
+
+    return countryStatesLoadPromise;
+}
+
+export function preloadCountryStates() {
+    return loadCountryStates();
+}
+
+async function readCountryStates() {
     try {
         const rawStates = await AsyncStorage.getItem(STORAGE_KEY);
 
