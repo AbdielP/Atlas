@@ -9,10 +9,90 @@ const MAX_TRIANGLE_EDGE = 0.18;
 const MAX_SUBDIVISION_DEPTH = 8;
 // const LAND_COLOR = "#0e6975";
 
+function getFeatureCenter(feature) {
+    let bestBounds = null;
+    let bestScore = -Infinity;
+
+    function normalizeLon(lon) {
+        let next = lon;
+
+        while (next > 180) next -= 360;
+        while (next < -180) next += 360;
+
+        return next;
+    }
+
+    function getRingBounds(ring) {
+        let previousLon = null;
+        let minLon = Infinity;
+        let maxLon = -Infinity;
+        let minLat = Infinity;
+        let maxLat = -Infinity;
+
+        ring.forEach(([rawLon, lat]) => {
+            let lon = rawLon;
+
+            if (previousLon !== null) {
+                while (lon - previousLon > 180) lon -= 360;
+                while (lon - previousLon < -180) lon += 360;
+            }
+
+            previousLon = lon;
+
+            minLon = Math.min(minLon, lon);
+            maxLon = Math.max(maxLon, lon);
+            minLat = Math.min(minLat, lat);
+            maxLat = Math.max(maxLat, lat);
+        });
+
+        if (
+            !Number.isFinite(minLon) ||
+            !Number.isFinite(maxLon) ||
+            !Number.isFinite(minLat) ||
+            !Number.isFinite(maxLat)
+        ) {
+            return null;
+        }
+
+        return { minLon, maxLon, minLat, maxLat };
+    }
+
+    function considerRing(ring) {
+        const bounds = getRingBounds(ring);
+
+        if (!bounds) return;
+
+        const score = (bounds.maxLon - bounds.minLon) * (bounds.maxLat - bounds.minLat);
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestBounds = bounds;
+        }
+    }
+
+    if (feature.geometry.type === "Polygon") {
+        considerRing(feature.geometry.coordinates[0]);
+    }
+
+    if (feature.geometry.type === "MultiPolygon") {
+        feature.geometry.coordinates.forEach((polygon) => {
+            considerRing(polygon[0]);
+        });
+    }
+
+    if (!bestBounds) return null;
+
+    return {
+        lat: (bestBounds.minLat + bestBounds.maxLat) / 2,
+        lon: normalizeLon((bestBounds.minLon + bestBounds.maxLon) / 2)
+    };
+}
+
 export default function CountryMesh({ feature, onCountryPress }) {
     const countryId = feature.id;
     const name = feature.properties.name;
     const materialRefs = useRef([]);
+    const focusPoint = useMemo(() => getFeatureCenter(feature), [feature]);
 
     const geometries = useMemo(() => {
         const result = [];
@@ -176,7 +256,8 @@ export default function CountryMesh({ feature, onCountryPress }) {
 
         onCountryPress?.({
             id: countryId,
-            name
+            name,
+            focusPoint
         });
     }
 
