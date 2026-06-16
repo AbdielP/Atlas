@@ -176,7 +176,7 @@ function GlobeScene({ onCountryPress }) {
     );
 }
 
-export default function WorldGlobe() {
+export default function WorldGlobe({ onOpenDetail }) {
     const lastTouchRef = useRef({ x: 0, y: 0 });
     const initialDistanceRef = useRef(0);
     const initialZoomRef = useRef(3);
@@ -311,6 +311,13 @@ export default function WorldGlobe() {
         }
     }
 
+    function handleViewDetail() {
+        const id = selectedCountry?.id;
+        setSelectedCountry(null);
+        focusSnapshotRef.current = null;
+        onOpenDetail?.(id);
+    }
+
     return (
         <View style={{ flex: 1 }} {...panResponder.panHandlers}>
             <>
@@ -338,6 +345,7 @@ export default function WorldGlobe() {
                     onClose={() => {
                         closeCountryMenu();
                     }}
+                    onViewDetail={handleViewDetail}
                 />
             </>
         </View>

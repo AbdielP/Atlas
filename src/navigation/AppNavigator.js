@@ -1,11 +1,14 @@
-import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Globe2, List, Trophy, User } from "lucide-react-native";
 import WorldGlobe from "../components/WorldGlobe";
 import ListScreen from "../screens/ListScreen";
 import AchievementsScreen from "../screens/AchievementsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
+import CountryDetailScreen from "../screens/CountryDetailScreen";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
 const tabs = [
     { key: "Explorar", label: "Explorar", Icon: Globe2 },
@@ -17,18 +20,39 @@ const tabs = [
 function NavigationHost() {
     const insets = useSafeAreaInsets();
     const [activeTab, setActiveTab] = useState("Explorar");
+    const [detailCountry, setDetailCountry] = useState(null);
+    const slideAnim = useRef(new Animated.Value(SCREEN_WIDTH)).current;
 
     const ActiveScreen = useMemo(() => {
         return tabs.find((tab) => tab.key === activeTab)?.Screen || null;
     }, [activeTab]);
 
+    const openDetail = useCallback((countryId) => {
+        setDetailCountry(countryId);
+        slideAnim.setValue(SCREEN_WIDTH);
+        Animated.spring(slideAnim, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 80,
+            friction: 12,
+        }).start();
+    }, [slideAnim]);
+
+    const closeDetail = useCallback(() => {
+        Animated.timing(slideAnim, {
+            toValue: SCREEN_WIDTH,
+            duration: 220,
+            useNativeDriver: true,
+        }).start(() => setDetailCountry(null));
+    }, [slideAnim]);
+
     return (
         <View style={styles.root}>
-            <WorldGlobe />
+            <WorldGlobe onOpenDetail={openDetail} />
 
             {ActiveScreen ? (
                 <View style={styles.screenLayer}>
-                    <ActiveScreen />
+                    <ActiveScreen onOpenDetail={openDetail} />
                 </View>
             ) : null}
 
@@ -53,6 +77,18 @@ function NavigationHost() {
                     );
                 })}
             </View>
+
+            {/* Pantalla de detalle — se desliza desde la derecha sobre todo lo demás */}
+            {detailCountry !== null ? (
+                <Animated.View
+                    style={[
+                        StyleSheet.absoluteFillObject,
+                        { transform: [{ translateX: slideAnim }], elevation: 50 },
+                    ]}
+                >
+                    <CountryDetailScreen countryId={detailCountry} onClose={closeDetail} />
+                </Animated.View>
+            ) : null}
         </View>
     );
 }

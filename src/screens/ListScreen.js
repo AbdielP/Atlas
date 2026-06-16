@@ -28,7 +28,7 @@ function getCountryContinent(country) {
     return country.region || "Sin continente";
 }
 
-export default function ListScreen() {
+export default function ListScreen({ onOpenDetail }) {
     const [filter, setFilter] = useState("visited");
     const [query, setQuery] = useState("");
     const [snapshot, setSnapshot] = useState({});
@@ -42,7 +42,7 @@ export default function ListScreen() {
         const wishlist = Object.values(snapshot).filter((state) => state === "wishlist").length;
         const continents = new Set(
             countries
-                .filter((country) => snapshot[country.cca2] === "visited")
+                .filter((country) => snapshot[country.cca3] === "visited")
                 .flatMap((country) => country.continents || [])
         );
 
@@ -59,7 +59,7 @@ export default function ListScreen() {
 
         return countries
             .filter((country) => {
-                const state = snapshot[country.cca2] || "none";
+                const state = snapshot[country.cca3] || "none";
 
                 if (filter !== "all" && state !== filter) return false;
                 if (!normalizedQuery) return true;
@@ -119,10 +119,16 @@ export default function ListScreen() {
                 keyExtractor={(item) => item.cca2}
                 contentContainerStyle={styles.listContent}
                 renderItem={({ item }) => {
-                    const state = snapshot[item.cca2] || "none";
+                    const state = snapshot[item.cca3] || "none";
 
                     return (
-                        <View style={styles.countryRow}>
+                        <Pressable
+                            onPress={() => onOpenDetail?.(item.cca3)}
+                            style={({ pressed }) => [
+                                styles.countryRow,
+                                pressed && styles.countryRowPressed,
+                            ]}
+                        >
                             <View>
                                 <Text style={styles.countryName}>{getCountryName(item)}</Text>
                                 <Text style={styles.countryMeta}>{getCountryContinent(item)}</Text>
@@ -130,7 +136,7 @@ export default function ListScreen() {
                             <Text style={[styles.badge, state === "visited" && styles.visitedBadge]}>
                                 {state === "wishlist" ? "Wishlist" : state === "visited" ? "Visitado" : "Sin marcar"}
                             </Text>
-                        </View>
+                        </Pressable>
                     );
                 }}
                 ListEmptyComponent={
@@ -227,6 +233,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         borderWidth: 1,
         borderColor: "#e2e8f0"
+    },
+    countryRowPressed: {
+        opacity: 0.6,
     },
     countryName: {
         color: "#0b1f45",

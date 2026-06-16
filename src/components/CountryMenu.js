@@ -42,7 +42,7 @@ const subregionLabels = {
 function getCountryDetails(country) {
     if (!country?.id) return null;
 
-    return countries.find((item) => item.cca2 === country.id) || null;
+    return countries.find((item) => item.cca3 === country.id) || null;
 }
 
 function getCountryName(country, details) {
@@ -158,7 +158,8 @@ export default function CountryMenu({
     onVisited,
     onWishlist,
     onClear,
-    onClose
+    onClose,
+    onViewDetail,
 }) {
     const details = getCountryDetails(country);
     const name = getCountryName(country, details);
@@ -238,7 +239,7 @@ export default function CountryMenu({
                                 <PhotoPreview />
                             </View>
 
-                            <Pressable style={styles.detailsButton}>
+                            <Pressable style={styles.detailsButton} onPress={onViewDetail}>
                                 <MapPin color="#2368b2" size={20} strokeWidth={2.2} />
                                 <Text style={styles.detailsButtonText}>
                                     Ver informacion completa
