@@ -8,7 +8,7 @@ import {
     View
 } from "react-native";
 import countries from "../../assets/data/countries.json";
-import { countryStates } from "../data/countryStore";
+import { countryStates, subscribe, unsubscribe } from "../data/countryStore";
 
 const filters = [
     { key: "visited", label: "Visitados" },
@@ -34,7 +34,10 @@ export default function ListScreen({ onOpenDetail }) {
     const [snapshot, setSnapshot] = useState({});
 
     useEffect(() => {
-        setSnapshot({ ...countryStates });
+        const refresh = () => setSnapshot({ ...countryStates });
+        refresh();
+        subscribe(refresh);
+        return () => unsubscribe(refresh);
     }, []);
 
     const stats = useMemo(() => {

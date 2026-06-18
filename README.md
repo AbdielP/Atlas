@@ -1,12 +1,12 @@
 # TODO
 
 ## Pendientes generales
-- [ ] Supabase: crear tablas (visited_countries, photos, achievements, notes) + RLS
+- [x] Supabase: crear tablas (visited_countries, photos, achievements) + RLS
 - [ ] Supabase: activar Google OAuth
-- [ ] Instalar `@supabase/supabase-js` y crear cliente (`src/lib/supabase.js`)
-- [ ] Guardar URL y anon key en `.env`
+- [x] Instalar `@supabase/supabase-js` y crear cliente (`src/lib/supabase.js`) con sesión cifrada (LargeSecureStore + AES-256)
+- [x] Guardar URL y publishable key en `.env.local` (gitignoreado)
 - [ ] Pantalla de Login con Google
-- [ ] Conectar `countryStore` a Supabase (fire-and-forget, sin bloquear el globo)
+- [x] Conectar `countryStore` a Supabase (fire-and-forget, sin bloquear el globo)
 - [ ] Pantalla de Detalle: tab Fotos (álbum real con expo-image-picker)
 - [ ] Pantalla de Detalle: tab Notas (texto libre, guardado en Supabase)
 - [ ] Pantalla de Detalle: tab Logros (filtrados por país/continente)
@@ -18,64 +18,52 @@
 
 ---
 
+## ▶ Próximo paso recomendado: Google OAuth + Login screen
+
+**Por qué es lo más urgente:**
+La auth anónima actual es temporal — si el usuario desinstala la app, pierde todos sus datos. Sin una cuenta real, el Perfil no puede mostrar nombre ni foto, y la app no puede sincronizarse entre dispositivos de forma confiable.
+
+**Qué implica:**
+1. Activar Google OAuth en Supabase (Authentication → Providers → Google)
+2. Registrar la app en Google Cloud Console para obtener client ID
+3. Instalar `expo-auth-session` y configurar el deep link en `app.json`
+4. Crear pantalla de Onboarding con botón "Continuar con Google"
+5. Modificar `AppNavigator` para mostrar Login si no hay sesión, Tabs si hay sesión
+6. Migrar datos de la sesión anónima a la cuenta Google al vincularlas (Supabase soporta esto nativamente con `linkIdentity`)
+
+**Después de Google OAuth, el orden lógico sería:**
+- Logros (sin dependencias externas, usa los datos que ya se sincronizan)
+- Tab Notas (Supabase ya está listo, es solo UI + un query)
+- Tab Fotos (requiere expo-image-picker + Supabase Storage)
+- Estadísticas en el globo
+- GPS
+
+---
+
 ## Base de datos (Supabase)
 
-### 1. Crear tablas en Supabase
-- `visited_countries` — id, user_id, country_code (cca3), status (visited/wishlist), updated_at
+### Tablas creadas
+- `visited_countries` — id, user_id, country_code (char 2, alpha-2), status ('visitado'/'wishlist'), visited_at
 - `photos` — id, user_id, country_code, storage_path, created_at
 - `achievements` — id, user_id, achievement_key, unlocked_at
-- `notes` — id, user_id, country_code, body, updated_at
-- Activar RLS en las 4 tablas: cada usuario solo lee/escribe sus propios registros (`user_id = auth.uid()`)
+- RLS activo en las 3 tablas: `user_id = auth.uid()`
 
-### 2. Configurar autenticación
-- Habilitar Google OAuth en Supabase Auth (panel → Authentication → Providers)
-- Instalar `@supabase/supabase-js`
-- Crear `src/lib/supabase.js` con el cliente (URL + anon key desde variables de entorno)
-- Crear pantalla de Onboarding/Login con botón "Continuar con Google"
-- Agregar Stack raíz en AppNavigator: Login → Tabs (solo si no hay sesión activa)
-
-### 3. Conectar visited_countries (prioridad alta)
-- En `countryStore.js`: después del write a AsyncStorage, hacer upsert a Supabase en background (fire-and-forget, sin await en el hilo del UI)
-- Al iniciar app: cargar AsyncStorage primero (rápido, ya funciona), luego en background fetch de Supabase y reconciliar diferencias
-- En caso de conflicto: Supabase gana (es la fuente de verdad); AsyncStorage es solo caché offline
-
-### 4. Conectar el resto de tablas
-- Fotos: al implementar álbum, subir a Supabase Storage + insertar fila en `photos`
-- Logros: al desbloquear, insertar en `achievements`
-- Notas: al guardar nota de país, upsert en `notes`
+### Notas de implementación
+- El app usa alpha-3 (cca3) internamente; se mapea a alpha-2 al leer/escribir en Supabase
+- El app usa `"visited"` internamente; se mapea a `"visitado"` al leer/escribir en Supabase
+- Auth actual: anónima (temporal) — reemplazar con Google OAuth
+- Sesión cifrada en dispositivo con AES-256 + expo-secure-store (LargeSecureStore)
+- Credenciales en `.env.local` (nunca en git)
 
 ---
 
-## Estrategia de rendimiento (no bloquear el pintado del globo)
+## Estrategia de rendimiento (el globo nunca espera IO)
 
-El globo se pinta cambiando un material de Three.js en memoria — es instantáneo y nunca debe esperar IO.
+Flujo al marcar un país:
+1. **Inmediato** — actualizar estado en memoria + color en Three.js
+2. **Async no bloqueante** — escribir en AsyncStorage
+3. **Background, fire-and-forget** — upsert a Supabase sin await
 
-Flujo correcto al marcar un país:
-1. **Inmediato** — actualizar estado en memoria + color en Three.js (ya funciona así)
-2. **Inmediato async** — escribir en AsyncStorage (no bloquea, ya funciona así)
-3. **Background, fire-and-forget** — upsert a Supabase SIN await en el handler de UI
-
-```
-// countryStore.js — patrón a seguir
-export async function setCountryStateAndPersist(iso, state) {
-    setCountryState(iso, state);          // síncrono, instantáneo
-    await persistCountryStates();         // AsyncStorage, no bloquea UI
-    syncToSupabase(iso, state);           // fire-and-forget, sin await
-}
-
-function syncToSupabase(iso, state) {
-    // No se awaita — corre en background
-    supabase.from("visited_countries").upsert({ ... }).then(...).catch(console.warn);
-}
-```
-
-Al arrancar la app (en `preloadCountryStates`):
-1. Leer AsyncStorage → mostrar todo de inmediato (0 lag perceptible)
-2. En background: fetch Supabase → reconciliar y actualizar colores en el globo sin freeze
-
----
-
-## Pendientes de auth antes de conectar DB
-- Obtener URL y anon key del proyecto Supabase
-- Guardarlos en `.env` (nunca hardcodear en el código)
-- Configurar `app.json` para exponer variables de entorno a Expo (`expo-constants` o `@env`)
+Al arrancar la app:
+1. Leer AsyncStorage → pintar el globo de inmediato
+2. Obtener sesión en background → fetch Supabase → reconciliar y repintar
