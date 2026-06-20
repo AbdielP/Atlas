@@ -10,6 +10,7 @@ const LATIN_SUBREGIONS = ["South America", "Central America", "Caribbean"];
 
 const unlocked = {};
 const uiSubscribers = new Set();
+let toastsEnabled = false;
 
 export function subscribeAchievements(fn) { uiSubscribers.add(fn); }
 export function unsubscribeAchievements(fn) { uiSubscribers.delete(fn); }
@@ -75,7 +76,7 @@ function evaluateAndSync() {
         if (achievement.evaluate()) {
             unlocked[achievement.key] = new Date().toISOString();
             changed = true;
-            triggerAchievementToast(achievement.title);
+            if (toastsEnabled) triggerAchievementToast(achievement.title);
             syncAchievementToSupabase(achievement.key);
         }
     }
@@ -107,6 +108,7 @@ export async function loadAchievementsFromSupabase() {
         data.forEach(({ achievement_key, unlocked_at }) => {
             unlocked[achievement_key] = unlocked_at;
         });
+        toastsEnabled = true;
         notifyUI();
     } catch (_) {}
 }

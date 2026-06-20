@@ -1,15 +1,18 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { View, PanResponder } from "react-native";
+import { Animated, StyleSheet as RNStyleSheet, Text, View, PanResponder } from "react-native";
 import * as THREE from "three";
 import world from "../../assets/data/world-lite.json";
+import countriesData from "../../assets/data/countries.json";
 import { latLonToXYZ } from "../utils/geoUtils";
 import CountriesLayer from "./CountriesLayer";
 import CountryMenu from "./CountryMenu";
 import {
     countryStates,
     loadCountryStates,
-    setCountryStateAndPersist
+    setCountryStateAndPersist,
+    subscribe,
+    unsubscribe,
 } from "../data/countryStore";
 
 const globeState = {
@@ -176,6 +179,88 @@ function GlobeScene({ onCountryPress }) {
     );
 }
 
+function computeStats() {
+    const visited = Object.values(countryStates).filter((s) => s === "visited").length;
+    const total = countriesData.length;
+    const percent = total > 0 ? Math.round((visited / total) * 100) : 0;
+    const continents = new Set(
+        Object.entries(countryStates)
+            .filter(([, s]) => s === "visited")
+            .map(([iso]) => countriesData.find((c) => c.cca3 === iso)?.region)
+            .filter((r) => r && r !== "Antarctic")
+    );
+    return { visited, percent, continents: continents.size };
+}
+
+function FloatingStats() {
+    const opacity = useRef(new Animated.Value(1)).current;
+    const [stats, setStats] = useState(computeStats);
+    const visibleRef = useRef(true);
+
+    useEffect(() => {
+        const refresh = () => setStats(computeStats());
+        subscribe(refresh);
+        return () => unsubscribe(refresh);
+    }, []);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const shouldShow = globeState.zoom >= 2.8;
+            if (shouldShow !== visibleRef.current) {
+                visibleRef.current = shouldShow;
+                Animated.timing(opacity, {
+                    toValue: shouldShow ? 1 : 0,
+                    duration: 300,
+                    useNativeDriver: true,
+                }).start();
+            }
+        }, 100);
+        return () => clearInterval(interval);
+    }, []);
+
+    return (
+        <Animated.View style={[floatStyles.container, { opacity }]} pointerEvents="none">
+            <View style={floatStyles.stat}>
+                <Text style={[floatStyles.number, { fontSize: 42 }]}>{stats.visited}</Text>
+                <Text style={[floatStyles.label, { fontSize: 13 }]}>países visitados</Text>
+            </View>
+
+            <View style={[floatStyles.stat, { paddingLeft: 14 }]}>
+                <Text style={[floatStyles.number, { fontSize: 34 }]}>{stats.percent}%</Text>
+                <Text style={[floatStyles.label, { fontSize: 12 }]}>del mundo</Text>
+            </View>
+
+            <View style={[floatStyles.stat, { paddingLeft: 28 }]}>
+                <Text style={[floatStyles.number, { fontSize: 28 }]}>{stats.continents}</Text>
+                <Text style={[floatStyles.label, { fontSize: 11 }]}>continentes</Text>
+            </View>
+        </Animated.View>
+    );
+}
+
+const floatStyles = RNStyleSheet.create({
+    container: {
+        position: "absolute",
+        top: 60,
+        right: 20,
+        alignItems: "flex-end",
+        gap: 6,
+    },
+    stat: {
+        alignItems: "flex-end",
+    },
+    number: {
+        color: "#0b1f45",
+        fontWeight: "900",
+        lineHeight: 46,
+    },
+    label: {
+        color: "#6f7b8d",
+        fontWeight: "700",
+        marginTop: -4,
+    },
+});
+
 export default function WorldGlobe({ onOpenDetail }) {
     const lastTouchRef = useRef({ x: 0, y: 0 });
     const initialDistanceRef = useRef(0);
@@ -326,6 +411,8 @@ export default function WorldGlobe({ onOpenDetail }) {
                         onCountryPress={focusCountry}
                     />
                 </Canvas>
+
+                <FloatingStats />
 
                 <CountryMenu
                     visible={!!selectedCountry}

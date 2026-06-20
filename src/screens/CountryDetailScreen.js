@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+    ActivityIndicator,
     Pressable,
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -11,6 +13,10 @@ import { ArrowLeft, FileText, Globe2, ImagePlus, Lock, Trophy } from "lucide-rea
 import countries from "../../assets/data/countries.json";
 import { countryStates } from "../data/countryStore";
 import { catalog, isUnlocked, subscribeAchievements, unsubscribeAchievements } from "../data/achievements";
+import { supabase } from "../lib/supabase";
+
+const cca3ToCca2 = {};
+countries.forEach((c) => { if (c.cca2 && c.cca3) cca3ToCca2[c.cca3] = c.cca2; });
 
 // Color accent por región del mundo
 const REGION_COLOR = {
@@ -129,6 +135,83 @@ function ComingSoonTab({ Icon, label }) {
             <Icon color="#E2E8F0" size={52} strokeWidth={1.4} />
             <Text style={styles.comingSoonTitle}>{label}</Text>
             <Text style={styles.comingSoonSub}>Próximamente</Text>
+        </View>
+    );
+}
+
+function CountryNotes({ countryId }) {
+    const [body, setBody] = useState("");
+    const [loading, setLoading] = useState(true);
+    const [saved, setSaved] = useState(true);
+    const debounceRef = useRef(null);
+    const countryCode = cca3ToCca2[countryId];
+
+    useEffect(() => {
+        if (!countryCode) { setLoading(false); return; }
+        let cancelled = false;
+        (async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user || cancelled) { setLoading(false); return; }
+                const { data } = await supabase
+                    .from("notes")
+                    .select("body")
+                    .eq("user_id", user.id)
+                    .eq("country_code", countryCode)
+                    .maybeSingle();
+                if (!cancelled && data) setBody(data.body || "");
+            } catch (_) {}
+            if (!cancelled) setLoading(false);
+        })();
+        return () => { cancelled = true; };
+    }, [countryCode]);
+
+    const saveNote = useCallback((text) => {
+        if (!countryCode) return;
+        setSaved(false);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return;
+                await supabase
+                    .from("notes")
+                    .upsert(
+                        { user_id: user.id, country_code: countryCode, body: text, updated_at: new Date().toISOString() },
+                        { onConflict: "user_id,country_code" }
+                    );
+            } catch (_) {}
+            setSaved(true);
+        }, 1200);
+    }, [countryCode]);
+
+    function handleChange(text) {
+        setBody(text);
+        saveNote(text);
+    }
+
+    if (loading) {
+        return (
+            <View style={styles.notesLoading}>
+                <ActivityIndicator color="#94A3B8" size="small" />
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.notesContainer}>
+            <TextInput
+                value={body}
+                onChangeText={handleChange}
+                placeholder="Escribe tus notas sobre este país..."
+                placeholderTextColor="#94A3B8"
+                multiline
+                textAlignVertical="top"
+                style={styles.notesInput}
+            />
+            <Text style={styles.notesSaved}>
+                {saved ? "Guardado" : "Guardando..."}
+            </Text>
         </View>
     );
 }
@@ -261,7 +344,7 @@ export default function CountryDetailScreen({ countryId, onClose }) {
                 )}
 
                 {activeTab === "notes" && (
-                    <ComingSoonTab Icon={FileText} label="Notas personales" />
+                    <CountryNotes countryId={countryId} />
                 )}
             </ScrollView>
         </View>
@@ -433,6 +516,34 @@ const styles = StyleSheet.create({
         color: "#CBD5E1",
         fontSize: 14,
         fontWeight: "600",
+    },
+
+    // Notas
+    notesContainer: {
+        paddingHorizontal: 22,
+        paddingTop: 16,
+    },
+    notesLoading: {
+        paddingTop: 48,
+        alignItems: "center",
+    },
+    notesInput: {
+        minHeight: 180,
+        backgroundColor: "#F8FAFC",
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
+        padding: 16,
+        fontSize: 15,
+        color: "#0F172A",
+        lineHeight: 22,
+    },
+    notesSaved: {
+        color: "#94A3B8",
+        fontSize: 12,
+        fontWeight: "600",
+        textAlign: "right",
+        marginTop: 8,
     },
 
     // Logros
