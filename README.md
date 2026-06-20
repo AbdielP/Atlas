@@ -2,41 +2,65 @@
 
 ## Pendientes generales
 - [x] Supabase: crear tablas (visited_countries, photos, achievements) + RLS
-- [ ] Supabase: activar Google OAuth
+- [x] Supabase: activar Google OAuth
 - [x] Instalar `@supabase/supabase-js` y crear cliente (`src/lib/supabase.js`) con sesión cifrada (LargeSecureStore + AES-256)
 - [x] Guardar URL y publishable key en `.env.local` (gitignoreado)
-- [ ] Pantalla de Login con Google
+- [x] Pantalla de Login con Google
 - [x] Conectar `countryStore` a Supabase (fire-and-forget, sin bloquear el globo)
 - [ ] Pantalla de Detalle: tab Fotos (álbum real con expo-image-picker)
 - [ ] Pantalla de Detalle: tab Notas (texto libre, guardado en Supabase)
-- [ ] Pantalla de Detalle: tab Logros (filtrados por país/continente)
-- [ ] Logros: lógica real (evaluar countryStates, desbloquear automático)
+- [x] Pantalla de Detalle: tab Logros (filtrados por país/continente)
+- [x] Logros: lógica real (15 logros, evaluación automática, toast de notificación)
 - [ ] Estadísticas flotantes en el globo (visibles solo en zoom mínimo)
 - [ ] GPS: marcador de ubicación actual con expo-location
-- [ ] Perfil: mostrar datos reales del usuario autenticado
-- [ ] Paywall modal (límite de fotos Free → Premium) Pwk1U6iticN9v8bN
+- [x] Perfil: mostrar datos reales del usuario autenticado
+- [ ] Paywall modal (límite de fotos Free → Premium)
 
 ---
 
-## ▶ Próximo paso recomendado: Google OAuth + Login screen
+## ▶ Próximo paso recomendado: Tab Notas
 
-**Por qué es lo más urgente:**
-La auth anónima actual es temporal — si el usuario desinstala la app, pierde todos sus datos. Sin una cuenta real, el Perfil no puede mostrar nombre ni foto, y la app no puede sincronizarse entre dispositivos de forma confiable.
+**Por qué es lo más óptimo ahora:**
+Supabase ya está conectado y funcionando. Es solo UI (TextInput + botón guardar) y un upsert a una tabla nueva `notes`. No requiere paquetes nuevos ni configuración externa.
 
 **Qué implica:**
-1. Activar Google OAuth en Supabase (Authentication → Providers → Google)
-2. Registrar la app en Google Cloud Console para obtener client ID
-3. Instalar `expo-auth-session` y configurar el deep link en `app.json`
-4. Crear pantalla de Onboarding con botón "Continuar con Google"
-5. Modificar `AppNavigator` para mostrar Login si no hay sesión, Tabs si hay sesión
-6. Migrar datos de la sesión anónima a la cuenta Google al vincularlas (Supabase soporta esto nativamente con `linkIdentity`)
+1. Crear tabla `notes` en Supabase (id, user_id, country_code, body, updated_at) + RLS
+2. UI en el tab Notas de CountryDetailScreen: TextInput multilínea + guardado automático
+3. Cargar nota al abrir el detalle, guardar al salir o con debounce
 
-**Después de Google OAuth, el orden lógico sería:**
-- Logros (sin dependencias externas, usa los datos que ya se sincronizan)
-- Tab Notas (Supabase ya está listo, es solo UI + un query)
+**Después de Notas, el orden lógico sería:**
 - Tab Fotos (requiere expo-image-picker + Supabase Storage)
-- Estadísticas en el globo
-- GPS
+- Estadísticas flotantes en el globo
+- GPS (expo-location)
+- Paywall modal
+
+---
+
+## Logros (15 implementados)
+
+| Key | Nombre | Requisito |
+|---|---|---|
+| `first_country` | Primer destino | 1 país visitado |
+| `5_countries` | Viajero novato | 5 países |
+| `10_countries` | Trotamundos | 10 países |
+| `25_countries` | Ciudadano del mundo | 25 países |
+| `50_countries` | Leyenda viajera | 50 países |
+| `first_wishlist` | Soñador | 1 país en wishlist |
+| `10_wishlist` | Lista de sueños | 10 en wishlist |
+| `2_continents` | Intercontinental | 2 continentes |
+| `3_continents` | Explorador continental | 3 continentes |
+| `5_continents` | Viajero global | 5 continentes |
+| `6_continents` | Planeta desbloqueado | 6 continentes |
+| `south_america` | Alma latina | 3 países de América Latina |
+| `europe` | Eurotrip | 5 países de Europa |
+| `asia` | Ruta asiática | 3 países de Asia |
+| `africa` | Safari completo | 3 países de África |
+
+- Evaluación reactiva al marcar/desmarcar países
+- Una vez desbloqueado, no se revoca
+- Toast animado al desbloquear (banner oscuro + trofeo, 3s, con cola)
+- Sincronización a Supabase en background
+- Tab Logros en detalle de país filtra por relevancia (globales + región del país)
 
 ---
 
@@ -51,9 +75,10 @@ La auth anónima actual es temporal — si el usuario desinstala la app, pierde 
 ### Notas de implementación
 - El app usa alpha-3 (cca3) internamente; se mapea a alpha-2 al leer/escribir en Supabase
 - El app usa `"visited"` internamente; se mapea a `"visitado"` al leer/escribir en Supabase
-- Auth actual: anónima (temporal) — reemplazar con Google OAuth
-- Sesión cifrada en dispositivo con AES-256 + expo-secure-store (LargeSecureStore)
+- Auth: Google OAuth (web via expo-auth-session, móvil via @react-native-google-signin nativo)
+- Sesión cifrada en dispositivo con AES-256 + expo-secure-store (LargeSecureStore), en web usa AsyncStorage
 - Credenciales en `.env.local` (nunca en git)
+- Expo Go NO funciona para Google OAuth en móvil — requiere development build via EAS Build
 
 ---
 
@@ -67,3 +92,11 @@ Flujo al marcar un país:
 Al arrancar la app:
 1. Leer AsyncStorage → pintar el globo de inmediato
 2. Obtener sesión en background → fetch Supabase → reconciliar y repintar
+
+---
+
+## Build y testing
+
+- **Web**: `npx expo start` → funciona directo con Google OAuth
+- **Móvil**: `eas build --profile development --platform android` → instalar APK → `npx expo start --dev-client`
+- **EAS project**: `@yellow26/atlas`

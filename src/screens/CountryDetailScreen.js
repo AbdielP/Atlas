@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     Pressable,
     ScrollView,
@@ -7,9 +7,10 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, FileText, Globe2, ImagePlus, Trophy } from "lucide-react-native";
+import { ArrowLeft, FileText, Globe2, ImagePlus, Lock, Trophy } from "lucide-react-native";
 import countries from "../../assets/data/countries.json";
 import { countryStates } from "../data/countryStore";
+import { catalog, isUnlocked, subscribeAchievements, unsubscribeAchievements } from "../data/achievements";
 
 // Color accent por región del mundo
 const REGION_COLOR = {
@@ -132,6 +133,43 @@ function ComingSoonTab({ Icon, label }) {
     );
 }
 
+function CountryAchievements({ region }) {
+    const [, refresh] = useState(0);
+
+    useEffect(() => {
+        const update = () => refresh((n) => n + 1);
+        subscribeAchievements(update);
+        return () => unsubscribeAchievements(update);
+    }, []);
+
+    const relevant = catalog.filter(
+        (a) => a.region === null || a.region === region
+    );
+
+    return (
+        <View style={styles.dataSection}>
+            {relevant.map((a) => {
+                const done = isUnlocked(a.key);
+                return (
+                    <View key={a.key} style={[styles.achievementRow, !done && styles.achievementLocked]}>
+                        {done ? (
+                            <Trophy color="#f5a623" size={22} strokeWidth={2.2} />
+                        ) : (
+                            <Lock color="#cbd5e1" size={22} strokeWidth={2.2} />
+                        )}
+                        <View style={styles.achievementText}>
+                            <Text style={[styles.achievementName, !done && styles.achievementNameLocked]}>
+                                {a.title}
+                            </Text>
+                            <Text style={styles.achievementDetail}>{a.detail}</Text>
+                        </View>
+                    </View>
+                );
+            })}
+        </View>
+    );
+}
+
 // ─── main screen ─────────────────────────────────────────────────────────────
 
 export default function CountryDetailScreen({ countryId, onClose }) {
@@ -219,7 +257,7 @@ export default function CountryDetailScreen({ countryId, onClose }) {
                 )}
 
                 {activeTab === "logros" && (
-                    <ComingSoonTab Icon={Trophy} label="Logros del país" />
+                    <CountryAchievements region={details?.region} />
                 )}
 
                 {activeTab === "notes" && (
@@ -395,5 +433,34 @@ const styles = StyleSheet.create({
         color: "#CBD5E1",
         fontSize: 14,
         fontWeight: "600",
+    },
+
+    // Logros
+    achievementRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F8FAFC",
+    },
+    achievementLocked: {
+        opacity: 0.5,
+    },
+    achievementText: {
+        flex: 1,
+    },
+    achievementName: {
+        color: "#0F172A",
+        fontSize: 15,
+        fontWeight: "700",
+    },
+    achievementNameLocked: {
+        color: "#94A3B8",
+    },
+    achievementDetail: {
+        color: "#94A3B8",
+        fontSize: 12,
+        marginTop: 2,
     },
 });

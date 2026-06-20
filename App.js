@@ -4,6 +4,8 @@ import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import AppNavigator from "./src/navigation/AppNavigator";
 import LoginScreen from "./src/screens/LoginScreen";
 import { preloadCountryStates, syncFromSupabase } from "./src/data/countryStore";
+import { loadAchievementsFromSupabase } from "./src/data/achievements";
+import AchievementToast from "./src/components/AchievementToast";
 
 preloadCountryStates();
 
@@ -12,7 +14,9 @@ function Root() {
 
     useEffect(() => {
         if (session) {
-            syncFromSupabase().catch(() => {});
+            syncFromSupabase()
+                .then(() => loadAchievementsFromSupabase())
+                .catch(() => {});
         }
     }, [session]);
 
@@ -35,6 +39,7 @@ export default function App() {
     return (
         <AuthProvider>
             <Root />
+            <AchievementToast />
         </AuthProvider>
     );
 }
