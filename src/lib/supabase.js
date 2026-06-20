@@ -1,47 +1,54 @@
 import "react-native-get-random-values";
+import { Platform } from "react-native";
 import { createClient } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as SecureStore from "expo-secure-store";
-import * as aesjs from "aes-js";
 
-// SecureStore tiene un límite de 2048 bytes — no alcanza para guardar la sesión
-// completa. La solución: cifrar la sesión con AES-256 y guardar solo la clave
-// de cifrado en SecureStore. El valor cifrado va a AsyncStorage.
-class LargeSecureStore {
-    async _encrypt(key, value) {
-        const encryptionKey = crypto.getRandomValues(new Uint8Array(256 / 8));
-        const cipher = new aesjs.ModeOfOperation.ctr(encryptionKey, new aesjs.Counter(1));
-        const encryptedBytes = cipher.encrypt(aesjs.utils.utf8.toBytes(value));
-        await SecureStore.setItemAsync(key, aesjs.utils.hex.fromBytes(encryptionKey));
-        return aesjs.utils.hex.fromBytes(encryptedBytes);
+let storage;
+
+if (Platform.OS === "web") {
+    storage = AsyncStorage;
+} else {
+    const SecureStore = require("expo-secure-store");
+    const aesjs = require("aes-js");
+
+    class LargeSecureStore {
+        async _encrypt(key, value) {
+            const encryptionKey = crypto.getRandomValues(new Uint8Array(256 / 8));
+            const cipher = new aesjs.ModeOfOperation.ctr(encryptionKey, new aesjs.Counter(1));
+            const encryptedBytes = cipher.encrypt(aesjs.utils.utf8.toBytes(value));
+            await SecureStore.setItemAsync(key, aesjs.utils.hex.fromBytes(encryptionKey));
+            return aesjs.utils.hex.fromBytes(encryptedBytes);
+        }
+
+        async _decrypt(key, value) {
+            const encryptionKeyHex = await SecureStore.getItemAsync(key);
+            if (!encryptionKeyHex) return null;
+            const cipher = new aesjs.ModeOfOperation.ctr(
+                aesjs.utils.hex.toBytes(encryptionKeyHex),
+                new aesjs.Counter(1)
+            );
+            const decryptedBytes = cipher.decrypt(aesjs.utils.hex.toBytes(value));
+            return aesjs.utils.utf8.fromBytes(decryptedBytes);
+        }
+
+        async getItem(key) {
+            const encrypted = await AsyncStorage.getItem(key);
+            if (!encrypted) return encrypted;
+            return this._decrypt(key, encrypted);
+        }
+
+        async removeItem(key) {
+            await AsyncStorage.removeItem(key);
+            await SecureStore.deleteItemAsync(key);
+        }
+
+        async setItem(key, value) {
+            const encrypted = await this._encrypt(key, value);
+            await AsyncStorage.setItem(key, encrypted);
+        }
     }
 
-    async _decrypt(key, value) {
-        const encryptionKeyHex = await SecureStore.getItemAsync(key);
-        if (!encryptionKeyHex) return null;
-        const cipher = new aesjs.ModeOfOperation.ctr(
-            aesjs.utils.hex.toBytes(encryptionKeyHex),
-            new aesjs.Counter(1)
-        );
-        const decryptedBytes = cipher.decrypt(aesjs.utils.hex.toBytes(value));
-        return aesjs.utils.utf8.fromBytes(decryptedBytes);
-    }
-
-    async getItem(key) {
-        const encrypted = await AsyncStorage.getItem(key);
-        if (!encrypted) return encrypted;
-        return this._decrypt(key, encrypted);
-    }
-
-    async removeItem(key) {
-        await AsyncStorage.removeItem(key);
-        await SecureStore.deleteItemAsync(key);
-    }
-
-    async setItem(key, value) {
-        const encrypted = await this._encrypt(key, value);
-        await AsyncStorage.setItem(key, encrypted);
-    }
+    storage = new LargeSecureStore();
 }
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -49,7 +56,7 @@ const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
     auth: {
-        storage: new LargeSecureStore(),
+        storage,
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,

@@ -152,6 +152,17 @@ export async function syncFromSupabase() {
     }
 }
 
+// --- Limpieza al cerrar sesión (para no mezclar datos entre cuentas) ---
+
+export async function clearLocalCountryStates() {
+    Object.keys(countryStates).forEach((iso) => {
+        delete countryStates[iso];
+        applyCountryColor(iso, "none");
+    });
+    await AsyncStorage.removeItem(STORAGE_KEY);
+    notifySubscribers();
+}
+
 // --- Internos ---
 
 async function readCountryStates() {
