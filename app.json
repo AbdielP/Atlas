@@ -30,6 +30,12 @@
     "plugins": [
       "expo-secure-store",
       "@react-native-google-signin/google-signin"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "67847cb5-dc88-45e2-b475-ad4dc06318b5"
+      }
+    },
+    "owner": "yellow26"
   }
 }
