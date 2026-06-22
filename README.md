@@ -8,7 +8,7 @@
 - [x] Pantalla de Login con Google
 - [x] Conectar `countryStore` a Supabase (fire-and-forget, sin bloquear el globo)
 - [ ] Pantalla de Detalle: tab Fotos (álbum real con expo-image-picker)
-- [x] Pantalla de Detalle: tab Notas (texto libre, guardado en Supabase)
+- [x] Pantalla de Detalle: tab Notas (notas individuales como tarjetas, CRUD, guardado en Supabase)
 - [x] Pantalla de Detalle: tab Logros (filtrados por país/continente)
 - [x] Logros: lógica real (15 logros, evaluación automática, toast de notificación)
 - [x] Estadísticas flotantes en el globo (visibles solo en zoom mínimo)
@@ -18,15 +18,13 @@
 
 ---
 
-#CORREGIR: un campo de texto libre, no una lista de notas separadas. Es como un diario por país. ¿Querías algo diferente, como múltiples notas con fecha?
-
 ## Comando arrancar: npx expo start --dev-client
 
 ## Pendientes completos (ordenados de más fácil a más difícil)
 
 ### Fácil — solo UI + un query a Supabase
-- [ ] **Tab Notas** — TextInput multilínea en detalle de país, upsert a tabla `notes` (hay que crearla). Sin paquetes nuevos.
-- [ ] **Estadísticas flotantes en el globo** — mostrar países visitados/195, %, continentes. Solo visible en zoom mínimo, fade out al hacer zoom in. Sin paquetes nuevos, datos ya disponibles en memoria.
+- [x] **Tab Notas** — Notas individuales como tarjetas (crear, editar, eliminar), tabla `notes` en Supabase (múltiples por país).
+- [x] **Estadísticas flotantes en el globo** — países visitados/195, %, continentes. Solo visible en zoom mínimo, fade out al hacer zoom in.
 
 ### Medio — requiere paquetes nuevos pero lógica directa
 - [ ] **GPS: marcador de ubicación actual** — `expo-location` para obtener coordenadas, renderizar un punto en el globo 3D. Manejar permiso denegado sin bloquear la app.
@@ -82,8 +80,9 @@
 ### Tablas creadas
 - `visited_countries` — id, user_id, country_code (char 2, alpha-2), status ('visitado'/'wishlist'), visited_at
 - `photos` — id, user_id, country_code, storage_path, created_at
+- `notes` — id, user_id, country_code (char 2), body (text), created_at, updated_at (múltiples notas por país, sin unique constraint)
 - `achievements` — id, user_id, achievement_key, unlocked_at
-- RLS activo en las 3 tablas: `user_id = auth.uid()`
+- RLS activo en las 4 tablas: `user_id = auth.uid()`
 
 ### Notas de implementación
 - El app usa alpha-3 (cca3) internamente; se mapea a alpha-2 al leer/escribir en Supabase
