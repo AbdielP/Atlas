@@ -1,7 +1,9 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, StyleSheet as RNStyleSheet, Text, View, PanResponder } from "react-native";
+import { Animated, Pressable, StyleSheet as RNStyleSheet, Text, View, PanResponder } from "react-native";
 import * as THREE from "three";
+import * as Location from "expo-location";
+import { Navigation } from "lucide-react-native";
 import world from "../../assets/data/world-lite.json";
 import countriesData from "../../assets/data/countries.json";
 import { latLonToXYZ } from "../utils/geoUtils";
@@ -142,7 +144,37 @@ function CountryBorders() {
     );
 }
 
-function GlobeScene({ onCountryPress }) {
+function LocationMarker({ lat, lon }) {
+    const position = useMemo(() => new THREE.Vector3(...latLonToXYZ(lat, lon, 1.005)), [lat, lon]);
+
+    const quaternion = useMemo(() => {
+        const q = new THREE.Quaternion();
+        q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), position.clone().normalize());
+        return q;
+    }, [position]);
+
+    return (
+        <group position={position} quaternion={quaternion}>
+            {/* Pin tip (cone flipped, tip at surface) */}
+            <mesh position={[0, 0.03, 0]} rotation={[Math.PI, 0, 0]}>
+                <coneGeometry args={[0.02, 0.06, 12]} />
+                <meshBasicMaterial color="#EF4444" toneMapped={false} />
+            </mesh>
+            {/* Pin head */}
+            <mesh position={[0, 0.075, 0]}>
+                <sphereGeometry args={[0.028, 16, 16]} />
+                <meshBasicMaterial color="#DC2626" toneMapped={false} />
+            </mesh>
+            {/* White circle inside head */}
+            <mesh position={[0, 0.075, 0]}>
+                <sphereGeometry args={[0.013, 16, 16]} />
+                <meshBasicMaterial color="#FFFFFF" toneMapped={false} />
+            </mesh>
+        </group>
+    );
+}
+
+function GlobeScene({ onCountryPress, userLocation }) {
     const globeRef = useRef(null);
 
     useFrame((state) => {
@@ -175,6 +207,9 @@ function GlobeScene({ onCountryPress }) {
                 onCountryPress={onCountryPress}
             />
             <CountryBorders />
+            {userLocation && (
+                <LocationMarker lat={userLocation.lat} lon={userLocation.lon} />
+            )}
         </group>
     );
 }
@@ -261,6 +296,25 @@ const floatStyles = RNStyleSheet.create({
     },
 });
 
+const locStyles = RNStyleSheet.create({
+    centerBtn: {
+        position: "absolute",
+        bottom: 90,
+        left: 20,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: "#FFFFFF",
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        elevation: 4,
+    },
+});
+
 export default function WorldGlobe({ onOpenDetail }) {
     const lastTouchRef = useRef({ x: 0, y: 0 });
     const initialDistanceRef = useRef(0);
@@ -268,9 +322,27 @@ export default function WorldGlobe({ onOpenDetail }) {
     const isPinchingRef = useRef(false);
     const focusSnapshotRef = useRef(null);
     const [selectedCountry, setSelectedCountry] = useState(null);
+    const [userLocation, setUserLocation] = useState(null);
 
     useEffect(() => {
         loadCountryStates();
+    }, []);
+
+    useEffect(() => {
+        let subscription;
+        (async () => {
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== "granted") return;
+                const loc = await Location.getCurrentPositionAsync({});
+                setUserLocation({ lat: loc.coords.latitude, lon: loc.coords.longitude });
+                subscription = await Location.watchPositionAsync(
+                    { accuracy: Location.Accuracy.Balanced, distanceInterval: 100 },
+                    (loc) => setUserLocation({ lat: loc.coords.latitude, lon: loc.coords.longitude })
+                );
+            } catch (_) {}
+        })();
+        return () => { subscription?.remove(); };
     }, []);
 
     const panResponder = useMemo(
@@ -403,16 +475,32 @@ export default function WorldGlobe({ onOpenDetail }) {
         onOpenDetail?.(id);
     }
 
+    function handleCenterOnLocation() {
+        if (!userLocation) return;
+        const target = getFocusTarget(userLocation, false);
+        if (target) {
+            target.zoom = 2.5;
+            startGlobeAnimation(target);
+        }
+    }
+
     return (
         <View style={{ flex: 1 }} {...panResponder.panHandlers}>
             <>
                 <Canvas camera={{ position: [0, 0, 3] }}>
                     <GlobeScene
                         onCountryPress={focusCountry}
+                        userLocation={userLocation}
                     />
                 </Canvas>
 
                 <FloatingStats />
+
+                {userLocation && (
+                    <Pressable onPress={handleCenterOnLocation} style={locStyles.centerBtn}>
+                        <Navigation color="#3B82F6" size={22} strokeWidth={2.2} />
+                    </Pressable>
+                )}
 
                 <CountryMenu
                     visible={!!selectedCountry}

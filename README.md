@@ -12,7 +12,7 @@
 - [x] Pantalla de Detalle: tab Logros (filtrados por país/continente)
 - [x] Logros: lógica real (15 logros, evaluación automática, toast de notificación)
 - [x] Estadísticas flotantes en el globo (visibles solo en zoom mínimo)
-- [ ] GPS: marcador de ubicación actual con expo-location
+- [x] GPS: marcador de ubicación actual con expo-location + botón centrar
 - [x] Perfil: mostrar datos reales del usuario autenticado
 - [ ] Paywall modal (límite de fotos Free → Premium)
 
@@ -21,13 +21,14 @@
 ## Comando arrancar: npx expo start --dev-client
 
 ## Pendientes completos (ordenados de más fácil a más difícil)
+!AVERIGUAR COMO COMPILAR EN MIS DESKTOP CON EXPO.DEV, no me deja probar el app por que me pide acces key que ya se configuró, estoy seguro.
 
 ### Fácil — solo UI + un query a Supabase
 - [x] **Tab Notas** — Notas individuales como tarjetas (crear, editar, eliminar), tabla `notes` en Supabase (múltiples por país).
 - [x] **Estadísticas flotantes en el globo** — países visitados/195, %, continentes. Solo visible en zoom mínimo, fade out al hacer zoom in.
 
 ### Medio — requiere paquetes nuevos pero lógica directa
-- [ ] **GPS: marcador de ubicación actual** — `expo-location` para obtener coordenadas, renderizar un punto en el globo 3D. Manejar permiso denegado sin bloquear la app.
+- [x] **GPS: marcador de ubicación actual** — `expo-location`, punto azul pulsante en el globo 3D, botón flotante "centrar en mi ubicación". Permiso denegado = sin marcador, sin bloquear la app.
 - [ ] **Bottom sheet de país** — el doc de diseño describe un bottom sheet al tocar un país (estado simple → estado con opciones). Actualmente se abre el detalle completo directo. Requiere rediseño de la interacción.
 
 ### Difícil — varios paquetes + lógica compleja + storage externo
