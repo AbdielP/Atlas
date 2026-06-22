@@ -21,7 +21,39 @@
 ## Comando arrancar: npx expo start --dev-client
 
 ## Pendientes completos (ordenados de más fácil a más difícil)
-!AVERIGUAR COMO COMPILAR EN MIS DESKTOP CON EXPO.DEV, no me deja probar el app por que me pide acces key que ya se configuró, estoy seguro.
+
+## Cómo compilar y probar
+
+### Web (no requiere EAS ni login):
+```
+npx expo start
+```
+Abre en el navegador. Google OAuth funciona directo en web.
+
+### Móvil (requiere EAS Build):
+Google OAuth en móvil NO funciona con Expo Go. Se necesita un development build (APK).
+
+**Pasos para generar el APK:**
+1. Instalar EAS CLI: `npm install -g eas-cli`
+2. Loguearse: `eas login` (abre navegador, iniciar sesión con Google, cuenta: yellow26)
+3. Compilar: `eas build --profile development --platform android`
+   - Compila en la nube (5-10 min, puede ser más en free tier por cola)
+   - Al terminar, da un link para descargar el APK
+4. Instalar el APK en el celular Android
+5. Arrancar el servidor de desarrollo: `npx expo start --dev-client`
+6. Abrir la app Atlas en el celular — se conecta al servidor
+
+**Si da error de proyecto no configurado:** correr `eas init` primero.
+
+**Archivo requerido no incluido en git:** `.env.local` con estas 3 variables:
+```
+EXPO_PUBLIC_SUPABASE_URL=<url del proyecto Supabase>
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable key de Supabase>
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=<Web Client ID de Google Cloud Console>
+```
+Los valores reales están en el `.env.local` de la máquina principal. Copiarlos manualmente.
+
+**No se necesita recompilar el APK** cada vez que se cambia código JS — solo cuando se agregan/quitan paquetes nativos. El dev-client carga el código JS desde el servidor local.
 
 ### Fácil — solo UI + un query a Supabase
 - [x] **Tab Notas** — Notas individuales como tarjetas (crear, editar, eliminar), tabla `notes` en Supabase (múltiples por país).
