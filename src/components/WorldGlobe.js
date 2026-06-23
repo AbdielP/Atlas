@@ -145,29 +145,27 @@ function CountryBorders() {
 }
 
 function LocationMarker({ lat, lon }) {
-    const position = useMemo(() => new THREE.Vector3(...latLonToXYZ(lat, lon, 1.005)), [lat, lon]);
+    const groupRef = useRef();
+    const pos = useMemo(() => latLonToXYZ(lat, lon, 1.005), [lat, lon]);
 
-    const quaternion = useMemo(() => {
-        const q = new THREE.Quaternion();
-        q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), position.clone().normalize());
-        return q;
-    }, [position]);
+    useEffect(() => {
+        if (!groupRef.current) return;
+        const normal = new THREE.Vector3(...pos).normalize();
+        groupRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+    }, [pos]);
 
     return (
-        <group position={position} quaternion={quaternion}>
-            {/* Pin tip (cone flipped, tip at surface) */}
-            <mesh position={[0, 0.03, 0]} rotation={[Math.PI, 0, 0]}>
-                <coneGeometry args={[0.02, 0.06, 12]} />
+        <group ref={groupRef} position={pos}>
+            <mesh position={[0, 0.02, 0]} rotation={[Math.PI, 0, 0]}>
+                <coneGeometry args={[0.015, 0.04, 12]} />
                 <meshBasicMaterial color="#EF4444" toneMapped={false} />
             </mesh>
-            {/* Pin head */}
-            <mesh position={[0, 0.075, 0]}>
-                <sphereGeometry args={[0.028, 16, 16]} />
+            <mesh position={[0, 0.055, 0]}>
+                <sphereGeometry args={[0.022, 16, 16]} />
                 <meshBasicMaterial color="#DC2626" toneMapped={false} />
             </mesh>
-            {/* White circle inside head */}
-            <mesh position={[0, 0.075, 0]}>
-                <sphereGeometry args={[0.013, 16, 16]} />
+            <mesh position={[0, 0.055, 0]}>
+                <sphereGeometry args={[0.009, 16, 16]} />
                 <meshBasicMaterial color="#FFFFFF" toneMapped={false} />
             </mesh>
         </group>
@@ -299,7 +297,7 @@ const floatStyles = RNStyleSheet.create({
 const locStyles = RNStyleSheet.create({
     centerBtn: {
         position: "absolute",
-        bottom: 90,
+        bottom: 160,
         left: 20,
         width: 48,
         height: 48,
@@ -334,8 +332,8 @@ export default function WorldGlobe({ onOpenDetail }) {
             try {
                 const { status } = await Location.requestForegroundPermissionsAsync();
                 if (status !== "granted") return;
-                const loc = await Location.getCurrentPositionAsync({});
-                setUserLocation({ lat: loc.coords.latitude, lon: loc.coords.longitude });
+                const last = await Location.getLastKnownPositionAsync();
+                if (last) setUserLocation({ lat: last.coords.latitude, lon: last.coords.longitude });
                 subscription = await Location.watchPositionAsync(
                     { accuracy: Location.Accuracy.Balanced, distanceInterval: 100 },
                     (loc) => setUserLocation({ lat: loc.coords.latitude, lon: loc.coords.longitude })
@@ -485,7 +483,7 @@ export default function WorldGlobe({ onOpenDetail }) {
     }
 
     return (
-        <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+        <View style={{ flex: 1, backgroundColor: "#E8ECF1" }} {...panResponder.panHandlers}>
             <>
                 <Canvas camera={{ position: [0, 0, 3] }}>
                     <GlobeScene
