@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
+    Dimensions,
+    Image,
+    Modal,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -10,6 +14,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, Check, FileText, Globe2, ImagePlus, Lock, Pencil, Plus, Trash2, Trophy, X } from "lucide-react-native";
+import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import countries from "../../assets/data/countries.json";
 import { countryStates } from "../data/countryStore";
 import { catalog, isUnlocked, subscribeAchievements, unsubscribeAchievements } from "../data/achievements";
@@ -142,6 +148,158 @@ function ComingSoonTab({ Icon, label }) {
             <Icon color="#E2E8F0" size={52} strokeWidth={1.4} />
             <Text style={styles.comingSoonTitle}>{label}</Text>
             <Text style={styles.comingSoonSub}>Próximamente</Text>
+        </View>
+    );
+}
+
+const FREE_PHOTO_LIMIT = 5;
+const PHOTO_GRID_GAP = 4;
+const screenWidth = Dimensions.get("window").width;
+const photoColCount = 3;
+const photoSize = (screenWidth - 22 * 2 - PHOTO_GRID_GAP * (photoColCount - 1)) / photoColCount;
+
+function CountryPhotos({ countryId }) {
+    const [photos, setPhotos] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [uploading, setUploading] = useState(false);
+    const [viewerUri, setViewerUri] = useState(null);
+    const countryCode = cca3ToCca2[countryId];
+
+    useEffect(() => {
+        if (!countryCode) { setLoading(false); return; }
+        let cancelled = false;
+        (async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user || cancelled) { setLoading(false); return; }
+                const { data } = await supabase
+                    .from("photos")
+                    .select("id, storage_path, created_at")
+                    .eq("user_id", user.id)
+                    .eq("country_code", countryCode)
+                    .order("created_at", { ascending: false });
+                if (!cancelled) setPhotos(data || []);
+            } catch (_) {}
+            if (!cancelled) setLoading(false);
+        })();
+        return () => { cancelled = true; };
+    }, [countryCode]);
+
+    function getPublicUrl(path) {
+        const { data } = supabase.storage.from("photos").getPublicUrl(path);
+        return data?.publicUrl;
+    }
+
+    async function handleAdd() {
+        if (photos.length >= FREE_PHOTO_LIMIT) {
+            Alert.alert("Límite alcanzado", `El plan Free permite ${FREE_PHOTO_LIMIT} fotos por país. Próximamente: Premium.`);
+            return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ["images"],
+            quality: 1,
+        });
+        if (result.canceled || !result.assets?.length) return;
+
+        setUploading(true);
+        try {
+            const asset = result.assets[0];
+            const manipulated = await ImageManipulator.manipulateAsync(
+                asset.uri,
+                [{ resize: { width: 1080 } }],
+                { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+            );
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const ext = "jpg";
+            const fileName = `${user.id}/${countryCode}/${Date.now()}.${ext}`;
+
+            const response = await fetch(manipulated.uri);
+            const blob = await response.blob();
+
+            const { error: uploadError } = await supabase.storage
+                .from("photos")
+                .upload(fileName, blob, { contentType: "image/jpeg", upsert: false });
+            if (uploadError) throw uploadError;
+
+            const { data: row } = await supabase
+                .from("photos")
+                .insert({ user_id: user.id, country_code: countryCode, storage_path: fileName })
+                .select("id, storage_path, created_at")
+                .single();
+            if (row) setPhotos((prev) => [row, ...prev]);
+        } catch (_) {
+            Alert.alert("Error", "No se pudo subir la foto.");
+        } finally {
+            setUploading(false);
+        }
+    }
+
+    async function handleDelete(photo) {
+        Alert.alert("Eliminar foto", "¿Seguro que quieres eliminar esta foto?", [
+            { text: "Cancelar", style: "cancel" },
+            {
+                text: "Eliminar", style: "destructive", onPress: async () => {
+                    try {
+                        await supabase.storage.from("photos").remove([photo.storage_path]);
+                        await supabase.from("photos").delete().eq("id", photo.id);
+                        setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+                        setViewerUri(null);
+                    } catch (_) {}
+                }
+            },
+        ]);
+    }
+
+    if (loading) {
+        return <View style={styles.notesLoading}><ActivityIndicator color="#94A3B8" /></View>;
+    }
+
+    return (
+        <View style={styles.photosContainer}>
+            <Pressable style={styles.addPhotoBtn} onPress={handleAdd} disabled={uploading}>
+                {uploading ? (
+                    <ActivityIndicator color="#64748B" />
+                ) : (
+                    <>
+                        <Plus color="#64748B" size={18} strokeWidth={2.2} />
+                        <Text style={styles.addPhotoBtnText}>
+                            Agregar foto ({photos.length}/{FREE_PHOTO_LIMIT})
+                        </Text>
+                    </>
+                )}
+            </Pressable>
+
+            {photos.length === 0 && !uploading && (
+                <Text style={styles.photosEmpty}>Sin fotos aún. ¡Agrega la primera!</Text>
+            )}
+
+            <View style={styles.photoGrid}>
+                {photos.map((photo) => {
+                    const uri = getPublicUrl(photo.storage_path);
+                    return (
+                        <Pressable key={photo.id} onPress={() => setViewerUri(uri)} onLongPress={() => handleDelete(photo)}>
+                            <Image
+                                source={{ uri }}
+                                style={styles.photoThumb}
+                            />
+                        </Pressable>
+                    );
+                })}
+            </View>
+
+            <Modal visible={!!viewerUri} transparent animationType="fade" onRequestClose={() => setViewerUri(null)}>
+                <View style={styles.viewerOverlay}>
+                    <Pressable style={styles.viewerClose} onPress={() => setViewerUri(null)}>
+                        <X color="#FFFFFF" size={28} />
+                    </Pressable>
+                    {viewerUri && (
+                        <Image source={{ uri: viewerUri }} style={styles.viewerImage} resizeMode="contain" />
+                    )}
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -429,7 +587,7 @@ export default function CountryDetailScreen({ countryId, onClose }) {
                 )}
 
                 {activeTab === "photos" && (
-                    <ComingSoonTab Icon={ImagePlus} label="Álbum de fotos" />
+                    <CountryPhotos countryId={countryId} />
                 )}
 
                 {activeTab === "logros" && (
@@ -609,6 +767,63 @@ const styles = StyleSheet.create({
         color: "#CBD5E1",
         fontSize: 14,
         fontWeight: "600",
+    },
+
+    // Fotos
+    photosContainer: {
+        paddingHorizontal: 22,
+        paddingTop: 16,
+        gap: 12,
+    },
+    addPhotoBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        paddingVertical: 14,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: "#E2E8F0",
+        borderStyle: "dashed",
+    },
+    addPhotoBtnText: {
+        color: "#64748B",
+        fontSize: 14,
+        fontWeight: "600",
+    },
+    photosEmpty: {
+        color: "#94A3B8",
+        fontSize: 14,
+        textAlign: "center",
+        paddingTop: 20,
+    },
+    photoGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: PHOTO_GRID_GAP,
+    },
+    photoThumb: {
+        width: photoSize,
+        height: photoSize,
+        borderRadius: 8,
+        backgroundColor: "#F1F5F9",
+    },
+    viewerOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.92)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    viewerClose: {
+        position: "absolute",
+        top: 50,
+        right: 20,
+        zIndex: 10,
+        padding: 8,
+    },
+    viewerImage: {
+        width: "92%",
+        height: "75%",
     },
 
     // Notas

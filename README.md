@@ -7,7 +7,7 @@
 - [x] Guardar URL y publishable key en `.env.local` (gitignoreado)
 - [x] Pantalla de Login con Google
 - [x] Conectar `countryStore` a Supabase (fire-and-forget, sin bloquear el globo)
-- [ ] Pantalla de Detalle: tab Fotos (álbum real con expo-image-picker)
+- [x] Pantalla de Detalle: tab Fotos (álbum real con expo-image-picker)
 - [x] Pantalla de Detalle: tab Notas (notas individuales como tarjetas, CRUD, guardado en Supabase)
 - [x] Pantalla de Detalle: tab Logros (filtrados por país/continente)
 - [x] Logros: lógica real (15 logros, evaluación automática, toast de notificación)
@@ -64,7 +64,7 @@ Los valores reales están en el `.env.local` de la máquina principal. Copiarlos
 - [ ] **Bottom sheet de país** — el doc de diseño describe un bottom sheet al tocar un país (estado simple → estado con opciones). Actualmente se abre el detalle completo directo. Requiere rediseño de la interacción.
 
 ### Difícil — varios paquetes + lógica compleja + storage externo
-- [ ] **Tab Fotos (álbum)** — `expo-image-picker` + `expo-image-manipulator` (compresión a 1080px, calidad 0.7) + Supabase Storage (subir archivos). Grid de fotos, botón agregar, límite Free (3-5 por país).
+- [x] **Tab Fotos (álbum)** — `expo-image-picker` + `expo-image-manipulator` (compresión a 1080px, calidad 0.7) + Supabase Storage (bucket `photos`, público). Grid de fotos, agregar/eliminar, límite Free (5 por país). Preview en bottom sheet con contador real.
 - [ ] **Paywall modal** — detectar límite de fotos Free, mostrar modal Premium sobre cualquier pantalla. En v1 es simulado (`isPremium = false`), pero la lógica de bloqueo debe estar completa.
 
 ### Fuera de v1 (documentadas pero no comprometidas)
@@ -112,7 +112,7 @@ Los valores reales están en el `.env.local` de la máquina principal. Copiarlos
 
 ### Tablas creadas
 - `visited_countries` — id, user_id, country_code (char 2, alpha-2), status ('visitado'/'wishlist'), visited_at
-- `photos` — id, user_id, country_code, storage_path, created_at
+- `photos` — id, user_id, country_code, storage_path, created_at + Supabase Storage bucket `photos` (público, RLS: owner insert/delete)
 - `notes` — id, user_id, country_code (char 2), body (text), created_at, updated_at (múltiples notas por país, sin unique constraint)
 - `achievements` — id, user_id, achievement_key, unlocked_at
 - RLS activo en las 4 tablas: `user_id = auth.uid()`

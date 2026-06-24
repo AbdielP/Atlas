@@ -1,7 +1,9 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { CheckCircle2, Circle, ImagePlus, MapPin, X } from "lucide-react-native";
 import countries from "../../assets/data/countries.json";
 import { countryStates } from "../data/countryStore";
+import { supabase } from "../lib/supabase";
 
 const MAX_FREE_PHOTOS = 5;
 
@@ -139,15 +141,47 @@ function CompactAction({ label, onPress, type }) {
     );
 }
 
-function PhotoPreview() {
+function PhotoPreview({ countryCode, onCountChange }) {
+    const [photos, setPhotos] = useState([]);
+
+    useEffect(() => {
+        if (!countryCode) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user || cancelled) return;
+                const { data } = await supabase
+                    .from("photos")
+                    .select("id, storage_path")
+                    .eq("user_id", user.id)
+                    .eq("country_code", countryCode)
+                    .order("created_at", { ascending: false })
+                    .limit(4);
+                if (!cancelled) {
+                    setPhotos(data || []);
+                    onCountChange?.(data?.length || 0);
+                }
+            } catch (_) {}
+        })();
+        return () => { cancelled = true; };
+    }, [countryCode]);
+
+    function getPublicUrl(path) {
+        const { data } = supabase.storage.from("photos").getPublicUrl(path);
+        return data?.publicUrl;
+    }
+
+    const emptySlots = Math.max(0, 4 - photos.length);
+
     return (
         <View style={styles.photoRow}>
-            <View style={[styles.photoSlot, styles.photoSlotWarm]} />
-            <View style={[styles.photoSlot, styles.photoSlotBlue]} />
-            <View style={[styles.photoSlot, styles.photoSlotGreen]} />
-            <View style={styles.addPhotoSlot}>
-                <ImagePlus color="#667085" size={26} strokeWidth={2} />
-            </View>
+            {photos.map((p) => (
+                <Image key={p.id} source={{ uri: getPublicUrl(p.storage_path) }} style={styles.photoSlot} />
+            ))}
+            {Array.from({ length: emptySlots }).map((_, i) => (
+                <View key={`empty-${i}`} style={[styles.photoSlot, styles.photoSlotEmpty]} />
+            ))}
         </View>
     );
 }
@@ -165,6 +199,8 @@ export default function CountryMenu({
     const name = getCountryName(country, details);
     const status = countryStates[country?.id] || "none";
     const hasStatus = status === "visited" || status === "wishlist";
+    const countryCode = details?.cca2 || null;
+    const [photoCount, setPhotoCount] = useState(0);
 
     return (
         <Modal
@@ -234,9 +270,9 @@ export default function CountryMenu({
                             <View style={styles.section}>
                                 <View style={styles.photoHeader}>
                                     <Text style={styles.sectionTitle}>Album de fotos</Text>
-                                    <Text style={styles.photoCount}>0/{MAX_FREE_PHOTOS}</Text>
+                                    <Text style={styles.photoCount}>{photoCount}/{MAX_FREE_PHOTOS}</Text>
                                 </View>
-                                <PhotoPreview />
+                                <PhotoPreview countryCode={countryCode} onCountChange={setPhotoCount} />
                             </View>
 
                             <Pressable style={styles.detailsButton} onPress={onViewDetail}>
@@ -488,14 +524,8 @@ const styles = StyleSheet.create({
         aspectRatio: 1,
         borderRadius: 8
     },
-    photoSlotWarm: {
-        backgroundColor: "#eab7a7"
-    },
-    photoSlotBlue: {
-        backgroundColor: "#a7c8e8"
-    },
-    photoSlotGreen: {
-        backgroundColor: "#a8d8a7"
+    photoSlotEmpty: {
+        backgroundColor: "#F1F5F9"
     },
     addPhotoSlot: {
         flex: 1,
