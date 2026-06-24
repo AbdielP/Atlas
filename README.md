@@ -18,9 +18,23 @@
 
 ---
 
-## Comando arrancar: npx expo start --dev-client
+### Difícil — varios paquetes + lógica compleja + storage externo
+- [x] **Tab Fotos (álbum)** — `expo-image-picker` + `expo-image-manipulator` (compresión a 1080px, calidad 0.7) + Supabase Storage (bucket `photos`, público). Grid de fotos, agregar/eliminar, límite Free (5 por país). Preview en bottom sheet con contador real.
+- [ ] **Paywall modal** — detectar límite de fotos Free, mostrar modal Premium sobre cualquier pantalla. En v1 es simulado (`isPremium = false`), pero la lógica de bloqueo debe estar completa.
 
-## Pendientes completos (ordenados de más fácil a más difícil)
+### Fuera de v1 (documentadas pero no comprometidas)
+- Banderas sobre países visitados en el globo
+- Nombres de países flotantes
+- Collage de fotos al tocar un país
+- Temas de color para el globo
+- Avatares personalizados
+- Estadísticas avanzadas
+- Exportación de imágenes/videos
+- Widgets
+- Activación real de pagos (Apple/Google + RevenueCat)
+
+## Comando arrancar: 
+npx expo start --dev-client
 
 ## Cómo compilar y probar
 
@@ -54,29 +68,6 @@ EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=<Web Client ID de Google Cloud Console>
 Los valores reales están en el `.env.local` de la máquina principal. Copiarlos manualmente.
 
 **No se necesita recompilar el APK** cada vez que se cambia código JS — solo cuando se agregan/quitan paquetes nativos. El dev-client carga el código JS desde el servidor local.
-
-### Fácil — solo UI + un query a Supabase
-- [x] **Tab Notas** — Notas individuales como tarjetas (crear, editar, eliminar), tabla `notes` en Supabase (múltiples por país).
-- [x] **Estadísticas flotantes en el globo** — países visitados/195, %, continentes. Solo visible en zoom mínimo, fade out al hacer zoom in.
-
-### Medio — requiere paquetes nuevos pero lógica directa
-- [x] **GPS: marcador de ubicación actual** — `expo-location`, punto azul pulsante en el globo 3D, botón flotante "centrar en mi ubicación". Permiso denegado = sin marcador, sin bloquear la app.
-- [ ] **Bottom sheet de país** — el doc de diseño describe un bottom sheet al tocar un país (estado simple → estado con opciones). Actualmente se abre el detalle completo directo. Requiere rediseño de la interacción.
-
-### Difícil — varios paquetes + lógica compleja + storage externo
-- [x] **Tab Fotos (álbum)** — `expo-image-picker` + `expo-image-manipulator` (compresión a 1080px, calidad 0.7) + Supabase Storage (bucket `photos`, público). Grid de fotos, agregar/eliminar, límite Free (5 por país). Preview en bottom sheet con contador real.
-- [ ] **Paywall modal** — detectar límite de fotos Free, mostrar modal Premium sobre cualquier pantalla. En v1 es simulado (`isPremium = false`), pero la lógica de bloqueo debe estar completa.
-
-### Fuera de v1 (documentadas pero no comprometidas)
-- Banderas sobre países visitados en el globo
-- Nombres de países flotantes
-- Collage de fotos al tocar un país
-- Temas de color para el globo
-- Avatares personalizados
-- Estadísticas avanzadas
-- Exportación de imágenes/videos
-- Widgets
-- Activación real de pagos (Apple/Google + RevenueCat)
 
 ---
 
