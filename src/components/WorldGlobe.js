@@ -16,6 +16,7 @@ import {
     subscribe,
     unsubscribe,
 } from "../data/countryStore";
+import { supabase } from "../lib/supabase";
 
 const globeState = {
     x: 0,
@@ -96,7 +97,36 @@ function GlobeBase() {
     return (
         <mesh raycast={() => null}>
             <sphereGeometry args={[1, 64, 64]} />
-            <meshBasicMaterial color="#e6e6e6" toneMapped={false} />
+            <meshStandardMaterial color="#A8E0FF" roughness={0.8} metalness={0} />
+        </mesh>
+    );
+}
+
+function Atmosphere() {
+    return (
+        <mesh raycast={() => null}>
+            <sphereGeometry args={[1.06, 64, 64]} />
+            <meshBasicMaterial
+                color="#70B8E8"
+                transparent
+                opacity={0.2}
+                side={THREE.BackSide}
+                toneMapped={false}
+            />
+        </mesh>
+    );
+}
+
+function GlobeShadow() {
+    const geo = useMemo(() => {
+        const g = new THREE.CircleGeometry(0.7, 32);
+        g.rotateX(-Math.PI / 2);
+        return g;
+    }, []);
+
+    return (
+        <mesh geometry={geo} position={[0, -1.2, 0]} raycast={() => null}>
+            <meshBasicMaterial color="#3A5A7A" transparent opacity={0.1} toneMapped={false} />
         </mesh>
     );
 }
@@ -139,7 +169,7 @@ function CountryBorders() {
 
     return (
         <lineSegments geometry={geometry}>
-            <lineBasicMaterial color="#555555" />
+            <lineBasicMaterial color="#C8CDD4" />
         </lineSegments>
     );
 }
@@ -199,16 +229,23 @@ function GlobeScene({ onCountryPress, userLocation }) {
     });
 
     return (
-        <group ref={globeRef}>
-            <GlobeBase />
-            <CountriesLayer
-                onCountryPress={onCountryPress}
-            />
-            <CountryBorders />
-            {userLocation && (
-                <LocationMarker lat={userLocation.lat} lon={userLocation.lon} />
-            )}
-        </group>
+        <>
+            <ambientLight intensity={0.9} />
+            <directionalLight position={[4, 3, 5]} intensity={0.5} color="#FFFFFF" />
+            <directionalLight position={[-3, -1, -4]} intensity={0.35} color="#EAF4FF" />
+            <GlobeShadow />
+            <group ref={globeRef}>
+                <GlobeBase />
+                <CountriesLayer
+                    onCountryPress={onCountryPress}
+                />
+                <CountryBorders />
+                {userLocation && (
+                    <LocationMarker lat={userLocation.lat} lon={userLocation.lon} />
+                )}
+                <Atmosphere />
+            </group>
+        </>
     );
 }
 
@@ -228,12 +265,26 @@ function computeStats() {
 function FloatingStats() {
     const opacity = useRef(new Animated.Value(1)).current;
     const [stats, setStats] = useState(computeStats);
+    const [userName, setUserName] = useState("");
     const visibleRef = useRef(true);
 
     useEffect(() => {
         const refresh = () => setStats(computeStats());
         subscribe(refresh);
         return () => unsubscribe(refresh);
+    }, []);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user?.user_metadata?.full_name) {
+                    setUserName(user.user_metadata.full_name.split(" ")[0]);
+                } else if (user?.user_metadata?.name) {
+                    setUserName(user.user_metadata.name.split(" ")[0]);
+                }
+            } catch (_) {}
+        })();
     }, []);
 
     useEffect(() => {
@@ -253,19 +304,36 @@ function FloatingStats() {
 
     return (
         <Animated.View style={[floatStyles.container, { opacity }]} pointerEvents="none">
-            <View style={floatStyles.stat}>
-                <Text style={[floatStyles.number, { fontSize: 42 }]}>{stats.visited}</Text>
-                <Text style={[floatStyles.label, { fontSize: 13 }]}>países visitados</Text>
-            </View>
-
-            <View style={[floatStyles.stat, { paddingLeft: 14 }]}>
-                <Text style={[floatStyles.number, { fontSize: 34 }]}>{stats.percent}%</Text>
-                <Text style={[floatStyles.label, { fontSize: 12 }]}>del mundo</Text>
-            </View>
-
-            <View style={[floatStyles.stat, { paddingLeft: 28 }]}>
-                <Text style={[floatStyles.number, { fontSize: 28 }]}>{stats.continents}</Text>
-                <Text style={[floatStyles.label, { fontSize: 11 }]}>continentes</Text>
+            {userName ? (
+                <View style={floatStyles.greeting}>
+                    <Text style={floatStyles.greetingText}>{"¡"}Hola, {userName}!</Text>
+                    <Text style={floatStyles.subtitle}>Explora tu mundo</Text>
+                </View>
+            ) : null}
+            <View style={floatStyles.statsRow}>
+                <View style={floatStyles.statItem}>
+                    <View style={floatStyles.statValueRow}>
+                        <Text style={floatStyles.statNumber}>{stats.visited}</Text>
+                        <Text style={floatStyles.statIcon}>{"🌍"}</Text>
+                    </View>
+                    <Text style={floatStyles.statLabel}>PAÍSES VISITADOS</Text>
+                </View>
+                <View style={floatStyles.separator} />
+                <View style={floatStyles.statItem}>
+                    <View style={floatStyles.statValueRow}>
+                        <Text style={floatStyles.statNumber}>{stats.percent}%</Text>
+                        <Text style={floatStyles.statIcon}>{"🕒"}</Text>
+                    </View>
+                    <Text style={floatStyles.statLabel}>DEL MUNDO</Text>
+                </View>
+                <View style={floatStyles.separator} />
+                <View style={floatStyles.statItem}>
+                    <View style={floatStyles.statValueRow}>
+                        <Text style={floatStyles.statNumber}>{stats.continents}</Text>
+                        <Text style={floatStyles.statIcon}>{"🏔️"}</Text>
+                    </View>
+                    <Text style={floatStyles.statLabel}>CONTINENTES</Text>
+                </View>
             </View>
         </Animated.View>
     );
@@ -274,23 +342,59 @@ function FloatingStats() {
 const floatStyles = RNStyleSheet.create({
     container: {
         position: "absolute",
-        top: 60,
+        top: 50,
+        left: 20,
         right: 20,
-        alignItems: "flex-end",
-        gap: 6,
     },
-    stat: {
-        alignItems: "flex-end",
+    greeting: {
+        marginBottom: 10,
     },
-    number: {
-        color: "#0b1f45",
-        fontWeight: "900",
-        lineHeight: 46,
+    greetingText: {
+        fontSize: 22,
+        fontWeight: "600",
+        color: "#1B3A5C",
     },
-    label: {
-        color: "#6f7b8d",
+    subtitle: {
+        fontSize: 14,
+        color: "#7A8FA6",
+        fontWeight: "400",
+        marginTop: 2,
+    },
+    statsRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 4,
+    },
+    statItem: {
+        flex: 1,
+        alignItems: "center",
+    },
+    statValueRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 5,
+    },
+    statNumber: {
+        fontSize: 24,
         fontWeight: "700",
-        marginTop: -4,
+        color: "#1B3A5C",
+    },
+    statIcon: {
+        fontSize: 16,
+    },
+    statLabel: {
+        fontSize: 9,
+        fontWeight: "600",
+        color: "#7A8FA6",
+        textTransform: "uppercase",
+        letterSpacing: 0.6,
+        marginTop: 2,
+    },
+    separator: {
+        width: 1,
+        height: 30,
+        backgroundColor: "#C5D3E3",
     },
 });
 
@@ -483,7 +587,7 @@ export default function WorldGlobe({ onOpenDetail }) {
     }
 
     return (
-        <View style={{ flex: 1, backgroundColor: "#E8ECF1" }} {...panResponder.panHandlers}>
+        <View style={{ flex: 1, backgroundColor: "#DEEAF6" }} {...panResponder.panHandlers}>
             <>
                 <Canvas camera={{ position: [0, 0, 3] }}>
                     <GlobeScene
