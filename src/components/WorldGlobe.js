@@ -1,6 +1,7 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet as RNStyleSheet, Text, View, PanResponder } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as THREE from "three";
 import * as Location from "expo-location";
 import { Navigation } from "lucide-react-native";
@@ -97,7 +98,7 @@ function GlobeBase() {
     return (
         <mesh raycast={() => null}>
             <sphereGeometry args={[1, 64, 64]} />
-            <meshStandardMaterial color="#A8E0FF" roughness={0.8} metalness={0} />
+            <meshStandardMaterial color="#5B9FCC" roughness={0.82} metalness={0} />
         </mesh>
     );
 }
@@ -105,15 +106,116 @@ function GlobeBase() {
 function Atmosphere() {
     return (
         <mesh raycast={() => null}>
-            <sphereGeometry args={[1.06, 64, 64]} />
+            <sphereGeometry args={[1.05, 64, 64]} />
             <meshBasicMaterial
-                color="#70B8E8"
+                color="#A8D4F0"
                 transparent
-                opacity={0.2}
+                opacity={0.18}
                 side={THREE.BackSide}
                 toneMapped={false}
             />
         </mesh>
+    );
+}
+
+function getSimpleCenter(feature) {
+    let best = null;
+    let bestScore = -Infinity;
+
+    function evalRing(ring) {
+        let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+        let prev = null;
+        ring.forEach(([rawLon, lat]) => {
+            let lon = rawLon;
+            if (prev !== null) {
+                while (lon - prev > 180) lon -= 360;
+                while (lon - prev < -180) lon += 360;
+            }
+            prev = lon;
+            minLon = Math.min(minLon, lon);
+            maxLon = Math.max(maxLon, lon);
+            minLat = Math.min(minLat, lat);
+            maxLat = Math.max(maxLat, lat);
+        });
+        const score = (maxLon - minLon) * (maxLat - minLat);
+        if (score > bestScore) {
+            bestScore = score;
+            best = { minLon, maxLon, minLat, maxLat };
+        }
+    }
+
+    if (feature.geometry.type === "Polygon") evalRing(feature.geometry.coordinates[0]);
+    if (feature.geometry.type === "MultiPolygon") {
+        feature.geometry.coordinates.forEach((p) => evalRing(p[0]));
+    }
+
+    if (!best) return null;
+    let lon = (best.minLon + best.maxLon) / 2;
+    while (lon > 180) lon -= 360;
+    while (lon < -180) lon += 360;
+    return { lat: (best.minLat + best.maxLat) / 2, lon };
+}
+
+function CountryFlag3D({ lat, lon }) {
+    const groupRef = useRef();
+    const pos = useMemo(() => latLonToXYZ(lat, lon, 1.02), [lat, lon]);
+
+    useEffect(() => {
+        if (!groupRef.current) return;
+        const normal = new THREE.Vector3(...pos).normalize();
+        groupRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+    }, [pos]);
+
+    return (
+        <group ref={groupRef} position={pos}>
+            {/* Pole */}
+            <mesh position={[0, 0.038, 0]}>
+                <cylinderGeometry args={[0.002, 0.002, 0.076, 6]} />
+                <meshBasicMaterial color="#BBBBBB" toneMapped={false} />
+            </mesh>
+            {/* Flag body - dark */}
+            <mesh position={[0.023, 0.078, 0]}>
+                <planeGeometry args={[0.044, 0.028]} />
+                <meshBasicMaterial color="#1A1A1A" side={THREE.DoubleSide} toneMapped={false} />
+            </mesh>
+            {/* Checker white - top-left */}
+            <mesh position={[0.012, 0.085, 0.001]}>
+                <planeGeometry args={[0.022, 0.014]} />
+                <meshBasicMaterial color="#F0F0F0" side={THREE.DoubleSide} toneMapped={false} />
+            </mesh>
+            {/* Checker white - bottom-right */}
+            <mesh position={[0.034, 0.071, 0.001]}>
+                <planeGeometry args={[0.022, 0.014]} />
+                <meshBasicMaterial color="#F0F0F0" side={THREE.DoubleSide} toneMapped={false} />
+            </mesh>
+        </group>
+    );
+}
+
+function CountryFlags() {
+    const [visitedPoints, setVisitedPoints] = useState([]);
+
+    useEffect(() => {
+        const refresh = () => {
+            const points = [];
+            world.features.forEach((feature) => {
+                if (countryStates[feature.id] !== "visited") return;
+                const center = getSimpleCenter(feature);
+                if (center) points.push({ id: feature.id, lat: center.lat, lon: center.lon });
+            });
+            setVisitedPoints(points);
+        };
+        refresh();
+        subscribe(refresh);
+        return () => unsubscribe(refresh);
+    }, []);
+
+    return (
+        <>
+            {visitedPoints.map(({ id, lat, lon }) => (
+                <CountryFlag3D key={id} lat={lat} lon={lon} />
+            ))}
+        </>
     );
 }
 
@@ -230,9 +332,9 @@ function GlobeScene({ onCountryPress, userLocation }) {
 
     return (
         <>
-            <ambientLight intensity={0.9} />
-            <directionalLight position={[4, 3, 5]} intensity={0.5} color="#FFFFFF" />
-            <directionalLight position={[-3, -1, -4]} intensity={0.35} color="#EAF4FF" />
+            <ambientLight intensity={1.1} />
+            <directionalLight position={[-2, 4, 3]} intensity={1.1} color="#FFFFFF" />
+            <directionalLight position={[3, -1, -3]} intensity={0.12} color="#C8E4FF" />
             <GlobeShadow />
             <group ref={globeRef}>
                 <GlobeBase />
@@ -240,6 +342,7 @@ function GlobeScene({ onCountryPress, userLocation }) {
                     onCountryPress={onCountryPress}
                 />
                 <CountryBorders />
+                <CountryFlags />
                 {userLocation && (
                     <LocationMarker lat={userLocation.lat} lon={userLocation.lon} />
                 )}
@@ -263,6 +366,7 @@ function computeStats() {
 }
 
 function FloatingStats() {
+    const insets = useSafeAreaInsets();
     const opacity = useRef(new Animated.Value(1)).current;
     const [stats, setStats] = useState(computeStats);
     const [userName, setUserName] = useState("");
@@ -302,11 +406,13 @@ function FloatingStats() {
         return () => clearInterval(interval);
     }, []);
 
+    const topOffset = insets.top + 72;
+
     return (
-        <Animated.View style={[floatStyles.container, { opacity }]} pointerEvents="none">
+        <Animated.View style={[floatStyles.container, { opacity, top: topOffset }]} pointerEvents="none">
             {userName ? (
                 <View style={floatStyles.greeting}>
-                    <Text style={floatStyles.greetingText}>{"¡"}Hola, {userName}!</Text>
+                    <Text style={floatStyles.greetingText}>{"¡"}Hola, {userName}! {"👋"}</Text>
                     <Text style={floatStyles.subtitle}>Explora tu mundo</Text>
                 </View>
             ) : null}
@@ -342,7 +448,6 @@ function FloatingStats() {
 const floatStyles = RNStyleSheet.create({
     container: {
         position: "absolute",
-        top: 50,
         left: 20,
         right: 20,
     },
@@ -350,8 +455,8 @@ const floatStyles = RNStyleSheet.create({
         marginBottom: 10,
     },
     greetingText: {
-        fontSize: 22,
-        fontWeight: "600",
+        fontSize: 26,
+        fontWeight: "700",
         color: "#1B3A5C",
     },
     subtitle: {
@@ -402,18 +507,18 @@ const locStyles = RNStyleSheet.create({
     centerBtn: {
         position: "absolute",
         bottom: 160,
-        left: 20,
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        right: 24,
+        width: 52,
+        height: 52,
+        borderRadius: 26,
         backgroundColor: "#FFFFFF",
         alignItems: "center",
         justifyContent: "center",
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 6,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.18,
+        shadowRadius: 8,
+        elevation: 6,
     },
 });
 
@@ -587,7 +692,7 @@ export default function WorldGlobe({ onOpenDetail }) {
     }
 
     return (
-        <View style={{ flex: 1, backgroundColor: "#DEEAF6" }} {...panResponder.panHandlers}>
+        <View style={{ flex: 1, backgroundColor: "#E4EFF8" }} {...panResponder.panHandlers}>
             <>
                 <Canvas camera={{ position: [0, 0, 3] }}>
                     <GlobeScene

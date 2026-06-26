@@ -24,8 +24,8 @@ const savedStates = new Set(["visited", "wishlist"]);
 let countryStatesLoadPromise = null;
 
 const colors = {
-    none: "#FFFFFF",
-    visited: "#A3C496",
+    none: "#F2F5F8",
+    visited: "#88C97A",
     wishlist: "#ECC65A"
 };
 
