@@ -265,11 +265,13 @@ export default function CountryMesh({ feature, onCountryPress }) {
         <>
             {geometries.map((geometry, index) => (
                 <mesh key={index} geometry={geometry} onClick={handleClick}>
-                    <meshBasicMaterial
+                    <meshStandardMaterial
                         ref={(ref) => {
                             materialRefs.current[index] = ref;
                         }}
                         color={getCountryColor(countryId)}
+                        roughness={0.88}
+                        metalness={0}
                         side={THREE.FrontSide}
                         toneMapped={false}
                     />

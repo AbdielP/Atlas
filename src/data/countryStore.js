@@ -24,9 +24,9 @@ const savedStates = new Set(["visited", "wishlist"]);
 let countryStatesLoadPromise = null;
 
 const colors = {
-    none: "#ffffff",
-    visited: "#4da3ff",
-    wishlist: "#f2c94c"
+    none: "#F2F5F8",
+    visited: "#88C97A",
+    wishlist: "#ECC65A"
 };
 
 // --- Subscribers (para que ListScreen se refresque sin polling) ---

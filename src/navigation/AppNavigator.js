@@ -1,14 +1,101 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Dimensions, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
-import { Globe2, List, Trophy, User } from "lucide-react-native";
+import { Bell, Globe2, List, Menu, Trophy, User } from "lucide-react-native";
 import WorldGlobe from "../components/WorldGlobe";
 import ListScreen from "../screens/ListScreen";
 import AchievementsScreen from "../screens/AchievementsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import CountryDetailScreen from "../screens/CountryDetailScreen";
+import { supabase } from "../lib/supabase";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
+
+function GlobeHeader() {
+    const insets = useSafeAreaInsets();
+    const [avatarUrl, setAvatarUrl] = useState(null);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user?.user_metadata?.avatar_url) {
+                    setAvatarUrl(user.user_metadata.avatar_url);
+                }
+            } catch (_) {}
+        })();
+    }, []);
+
+    return (
+        <View style={[hdrStyles.row, { top: insets.top + 10 }]} pointerEvents="box-none">
+            <Pressable style={hdrStyles.btn} hitSlop={8}>
+                <Menu color="#1B3A5C" size={20} strokeWidth={2} />
+            </Pressable>
+            <View style={hdrStyles.right}>
+                <Pressable style={hdrStyles.btn} hitSlop={8}>
+                    <Bell color="#1B3A5C" size={20} strokeWidth={2} />
+                </Pressable>
+                <View style={hdrStyles.avatar}>
+                    {avatarUrl ? (
+                        <Image source={{ uri: avatarUrl }} style={hdrStyles.avatarImg} />
+                    ) : (
+                        <User color="#5B7FA6" size={18} strokeWidth={2} />
+                    )}
+                </View>
+            </View>
+        </View>
+    );
+}
+
+const hdrStyles = StyleSheet.create({
+    row: {
+        position: "absolute",
+        left: 16,
+        right: 16,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        zIndex: 20,
+    },
+    right: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+    },
+    btn: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: "rgba(255,255,255,0.88)",
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: "#0A2540",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+        elevation: 4,
+    },
+    avatar: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: "#D4E4F4",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+        borderWidth: 2,
+        borderColor: "#FFFFFF",
+        shadowColor: "#0A2540",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.14,
+        shadowRadius: 6,
+        elevation: 4,
+    },
+    avatarImg: {
+        width: "100%",
+        height: "100%",
+    },
+});
 
 const tabs = [
     { key: "Explorar", label: "Explorar", Icon: Globe2 },
@@ -49,6 +136,8 @@ function NavigationHost() {
     return (
         <View style={styles.root}>
             <WorldGlobe onOpenDetail={openDetail} />
+
+            {activeTab === "Explorar" ? <GlobeHeader /> : null}
 
             {ActiveScreen ? (
                 <View style={styles.screenLayer}>
